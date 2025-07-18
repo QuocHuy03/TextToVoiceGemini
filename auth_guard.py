@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from requests.exceptions import RequestException, ConnectionError, Timeout
 
 SECRET_SALT = "huydev"
 
@@ -38,20 +39,34 @@ def check_key_online(key: str, api_url: str):
             "device_id": device_id_hash
         }, timeout=10)
 
+        # Nếu lỗi status HTTP (500, 404,...)
+        if response.status_code != 200:
+            return False, f"❌ Lỗi máy chủ: HTTP {response.status_code}", {}
+
         res = response.json()
 
         if res.get("success"):
             info = {
-                  "key": key,
-                  "device_id": f"{mac} | {serial}",
-                  "expires": res.get("expires", ""),
-                  "remaining": res.get("remaining", "")  # 👈 THÊM DÒNG NÀY
+                "key": key,
+                "device_id": f"{mac} | {serial}",
+                "expires": res.get("expires", ""),
+                "remaining": res.get("remaining", "")
             }
             return True, res.get("message", "✅ Thành công"), info
         else:
             return False, res.get("message", "❌ KEY không hợp lệ"), {}
+
+    except ConnectionError:
+        return False, "📡 Không thể kết nối tới máy chủ. Kiểm tra kết nối mạng.", {}
+
+    except Timeout:
+        return False, "⏳ Máy chủ không phản hồi. Vui lòng thử lại sau.", {}
+
+    except RequestException as e:
+        return False, f"❌ Lỗi mạng: {str(e)}", {}
+
     except Exception as e:
-        return False, f"❌ Lỗi khi kiểm tra KEY: {e}", {}
+        return False, f"⚠️ Lỗi không xác định: {str(e)}", {}
 
 
 class KeyCheckThread(QThread):

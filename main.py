@@ -20,6 +20,11 @@ from version_checker import check_for_update, CURRENT_VERSION
 import re
 from pathlib import Path
 
+
+# API_URL="http://sofin.quochuy.io.vn"
+API_URL="http://192.168.0.193:5000"
+
+
 class ProxyCheckThread(QThread):
     result_ready = pyqtSignal(list)
 
@@ -70,7 +75,7 @@ class VoiceConvertThread(QThread):
             }
 
             print(f"Gửi request tạo voice với key {self.user_key[:8]}... voice: {self.voice_name}")
-            response = requests.post("http://192.168.0.193:5000/api/voice/create", data=payload, timeout=30)
+            response = requests.post(f"{API_URL}/api/voice/create", data=payload, timeout=30)
 
             try:
                 res = response.json()
@@ -129,11 +134,11 @@ class VoiceConvertThread(QThread):
 
 
 
-
 def centered_item(text):
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignCenter)
         return item
+
 
 
 class VoiceToolUI(QWidget):
@@ -162,6 +167,7 @@ class VoiceToolUI(QWidget):
         self.player = QMediaPlayer()
         self.init_ui()
         self.load_config()
+
 
 
     def init_ui(self):
@@ -235,16 +241,29 @@ class VoiceToolUI(QWidget):
 
     def load_voices(self):
         try:
-            # Load voices
-            response = requests.get("http://192.168.0.193:5000/api/voice/list")
+            response = requests.get(f"{API_URL}/api/voice/list", timeout=10)
+
+            if response.status_code != 200:
+                raise Exception(f"Server trả về mã lỗi HTTP {response.status_code}")
+
             data = response.json()
-            self.voice_data = data["voices"]
+            if not data.get("success"):
+                raise Exception(data.get("message", "Không thành công"))
+
+            self.voice_data = data.get("voices", [])
+            self.voice_combo.clear()  # Xóa combo cũ nếu có
 
             for voice in self.voice_data:
                 self.voice_combo.addItem(voice["name"], voice["code"])
 
+            if self.voice_data:
+                self.selected_voice_code = self.voice_data[0]["code"]  # Chọn voice đầu tiên
+
+        except requests.exceptions.RequestException as e:
+            QMessageBox.critical(self, "Lỗi kết nối", f"Không thể kết nối tới API:\n{e}")
         except Exception as e:
-            QMessageBox.critical(self, "Lỗi kết nối", f"Không thể lấy giọng nói từ API: {e}")
+            QMessageBox.critical(self, "Lỗi", f"Không thể tải danh sách giọng nói:\n{e}")
+
 
 
     def on_voice_changed(self):
@@ -253,6 +272,7 @@ class VoiceToolUI(QWidget):
         voice_code = next(voice['code'] for voice in self.voice_data if voice['name'] == voice_name)
         self.selected_voice_code = voice_code  # Store selected voice code
         
+
 
     def play_fixed_audio(self):
 
@@ -270,7 +290,6 @@ class VoiceToolUI(QWidget):
 
 
 
-
     def handle_audio_finished(self, state):
         if state == QMediaPlayer.StoppedState:
             # ✅ Bật lại nút Listen sau khi phát xong
@@ -282,7 +301,6 @@ class VoiceToolUI(QWidget):
 
 
 
-
     def handle_audio_result(self, success, result):
         self.listen_btn.setEnabled(True)
         
@@ -290,6 +308,7 @@ class VoiceToolUI(QWidget):
             self.play_audio(result)
         else:
             QMessageBox.critical(self, "Lỗi", f"❌ Không thể tạo giọng nói: {result}")
+
 
 
     def play_audio(self, audio_path, is_url=False):
@@ -305,7 +324,6 @@ class VoiceToolUI(QWidget):
         self.player.setMedia(QMediaContent(url))
         self.player.play()
         print(f"🎧 Đang phát file: {audio_path}")
-
 
 
 
@@ -327,6 +345,7 @@ class VoiceToolUI(QWidget):
                 print("✅ Đã load cấu hình từ config.json")
         except Exception as e:
             print(f"❌ Lỗi khi đọc config: {e}")
+
 
 
     def save_config(self):
@@ -354,6 +373,7 @@ class VoiceToolUI(QWidget):
                 self.thread.start()
 
 
+
     def proxy_check_done(self, live_proxies):
         proxy_type = self.proxy_type_combo.currentText().lower()
         self.proxies = [
@@ -363,6 +383,7 @@ class VoiceToolUI(QWidget):
         QMessageBox.information(self, "Proxy Loaded", f"Số lượng proxy live: {len(self.proxies)}")
         self.proxy_load_btn.setEnabled(True)
         self.proxy_load_btn.setText("Load Proxy")
+
 
 
     def key_check_done(self, valid_keys, status_map, error_message):
@@ -387,6 +408,7 @@ class VoiceToolUI(QWidget):
         self.keys_loaded = True
 
 
+
     def play_audio_from_row(self, row):
         item = self.table.item(row, 1)
         if not item:
@@ -404,6 +426,7 @@ class VoiceToolUI(QWidget):
 
         self.media_player.setMedia(QMediaContent(QUrl.fromLocalFile(file_path)))
         self.media_player.play()
+
 
 
     def import_file(self):
@@ -459,10 +482,12 @@ class VoiceToolUI(QWidget):
         self.file_loaded = True
 
 
+
     def make_cleanup_callback(self, thread):
         def callback():
             self.cleanup_thread(thread)
         return callback
+
 
 
     def convert_all(self):
@@ -480,6 +505,7 @@ class VoiceToolUI(QWidget):
             return
 
         self.start_converting()
+
 
 
     def start_converting(self):
@@ -530,6 +556,7 @@ class VoiceToolUI(QWidget):
             thread.start()
 
 
+
     def handle_convert_result(self, row, success, timing, speed, proxy, unused_param1, real_file_path_or_error):
         if success:
             self.table.setItem(row, 2, centered_item(timing))
@@ -567,12 +594,12 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # ✅ Kiểm tra update
-    if check_for_update("http://192.168.0.193:5000/api/version.json"):
+    if check_for_update(f"{API_URL}/api/version.json"):
         sys.exit(0)  # Dừng nếu có update (ví dụ: đã mở link tải rồi)
 
     # ✅ Gọi API auth
-    API_URL = "http://192.168.0.193:5000/api/voice/auth?sheet=VOICES"
-    login = KeyLoginDialog(API_URL)
+    API_URL_AUTH = f"{API_URL}/api/voice/auth?sheet=voices"
+    login = KeyLoginDialog(API_URL_AUTH)
 
     # ✅ Nếu xác thực thành công
     if login.exec_() == QDialog.Accepted and login.validated:
