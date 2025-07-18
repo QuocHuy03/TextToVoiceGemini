@@ -70,7 +70,7 @@ class VoiceConvertThread(QThread):
             }
 
             print(f"Gửi request tạo voice với key {self.user_key[:8]}... voice: {self.voice_name}")
-            response = requests.post("http://62.171.131.164:5000/api/create_voice", data=payload, timeout=30)
+            response = requests.post("http://192.168.0.193:5000/api/voice/create", data=payload, timeout=30)
 
             try:
                 res = response.json()
@@ -236,9 +236,9 @@ class VoiceToolUI(QWidget):
     def load_voices(self):
         try:
             # Load voices
-            response = requests.get("http://62.171.131.164:5000/api/get_gemini_voices")
+            response = requests.get("http://192.168.0.193:5000/api/voice/list")
             data = response.json()
-            self.voice_data = data["languages"]
+            self.voice_data = data["voices"]
 
             for voice in self.voice_data:
                 self.voice_combo.addItem(voice["name"], voice["code"])
@@ -567,11 +567,11 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # ✅ Kiểm tra update
-    if check_for_update("http://62.171.131.164:5000/api/version.json"):
+    if check_for_update("http://192.168.0.193:5000/api/version.json"):
         sys.exit(0)  # Dừng nếu có update (ví dụ: đã mở link tải rồi)
 
     # ✅ Gọi API auth
-    API_URL = "http://62.171.131.164:5000/api/auth?sheet=VOICES"
+    API_URL = "http://192.168.0.193:5000/api/voice/auth?sheet=VOICES"
     login = KeyLoginDialog(API_URL)
 
     # ✅ Nếu xác thực thành công
@@ -581,7 +581,7 @@ if __name__ == "__main__":
         # Format lại ngày hết hạn
         expires_raw = key_info.get("expires", "")
         remaining = key_info.get("remaining", "")
-        print(remaining)
+        print(key_info)
 
        
         # ✅ Load UI chính
