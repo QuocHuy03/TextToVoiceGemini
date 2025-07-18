@@ -1,3 +1,8 @@
 {
-    "proxy_type": "http"
+    "style": "photorealistic",
+    "theme": "nature",
+    "ratio": "4:3",
+    "mood": "happy",
+    "lighting": "natural",
+    "detail_level": "medium"
 }

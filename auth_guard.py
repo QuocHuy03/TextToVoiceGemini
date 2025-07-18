@@ -40,9 +40,17 @@ def check_key_online(key: str, api_url: str):
         }, timeout=10)
 
         # Nếu lỗi status HTTP (500, 404,...)
-        if response.status_code != 200:
-            return False, f"❌ Lỗi máy chủ: HTTP {response.status_code}", {}
+        try:
+            res = response.json()
+            message = res.get("message", f"❌ HTTP {response.status_code}")
+        except Exception:
+            message = f"❌ HTTP {response.status_code} (no JSON)"
+            res = {}
 
+        if response.status_code != 200:
+            return False, message, {}
+        
+        
         res = response.json()
 
         if res.get("success"):
