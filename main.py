@@ -19,7 +19,6 @@ from version_checker import check_for_update, CURRENT_VERSION
 import re
 from pathlib import Path
 from datetime import datetime
-import time
 
 # API_URL="http://sofin.quochuy.io.vn"
 API_URL="http://62.171.131.164:5000"
@@ -199,7 +198,8 @@ class VoiceToolUI(QWidget):
     def __init__(self):
         super().__init__()
         self.setGeometry(100, 100, 1200, 800)
-        self.setWindowTitle("Voice Tool Pro - Tối ưu hóa")
+        font = QFont("Roboto", 10)
+        self.setFont(font)
 
         # Initialize variables
         self.proxies = []
@@ -559,7 +559,7 @@ class VoiceToolUI(QWidget):
         # Table with 8 columns (added Player column)
         self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Output", "Timing", "Content", "Status", "Speed", "Proxy", "Player"
+            "ID", "OUTPUT", "TIMING", "CONTENT", "STATUS", "SPEED", "PROXY", "PLAYER"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
@@ -978,7 +978,7 @@ class VoiceToolUI(QWidget):
         self.file_loaded = True
         self.export_srt_btn.setEnabled(True)
         
-        QMessageBox.information(self, "Thành công", f"Đã import {len(self.texts)} dòng dữ liệu.\n\n💡 Bây giờ bạn có thể:\n- Nhấn '🚀 Start Convert' để convert audio\n- Sau khi convert xong, SRT sẽ được tự động xuất!")
+        # QMessageBox.information(self, "Thành công", f"Đã import {len(self.texts)} dòng dữ liệu.\n\n💡 Bây giờ bạn có thể:\n- Nhấn '🚀 Start Convert' để convert audio\n- Sau khi convert xong, SRT sẽ được tự động xuất!")
 
     def convert_all(self):
         if not self.file_loaded:
@@ -1138,7 +1138,6 @@ if __name__ == "__main__":
         # Format lại ngày hết hạn
         expires_raw = key_info.get("expires", "")
         remaining = key_info.get("remaining", "")
-        print(key_info)
 
        
         # ✅ Load UI chính

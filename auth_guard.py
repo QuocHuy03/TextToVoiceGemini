@@ -3,6 +3,7 @@ import hashlib
 import platform
 import subprocess
 import requests
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QSpacerItem, QSizePolicy, QProgressBar, QTextEdit
 )
@@ -84,6 +85,8 @@ class KeyLoginDialog(QDialog):
         super().__init__()
         self.api_url = api_url
         self.setWindowTitle("🔐 Đăng nhập qua API Server")
+        font = QFont("Roboto", 10)
+        self.setFont(font)
         self.validated = False
         self.key_info = {}
         
@@ -242,8 +245,6 @@ class KeyValidationThread(QThread):
     result_ready = pyqtSignal(bool, str, dict)
     
     def __init__(self, key, api_url):
-        print(f"Key: {key}")
-        print(f"API URL: {api_url}")
         super().__init__()
         self.key = key
         self.api_url = api_url
