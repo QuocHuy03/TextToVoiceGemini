@@ -237,6 +237,7 @@ class VoiceToolUI(QWidget):
         # Style chung cho GroupBox
         groupbox_style = """
             QGroupBox {
+                font-family: Roboto;
                 font-weight: bold;
                 font-size: 14px;
                 color: #333;
@@ -251,6 +252,7 @@ class VoiceToolUI(QWidget):
                 left: 15px;
                 padding: 0 8px 0 8px;
                 color: #2196F3;
+                font-family: Roboto;
                 font-weight: bold;
                 font-size: 15px;
             }
@@ -264,6 +266,7 @@ class VoiceToolUI(QWidget):
         self.start_btn = QPushButton("🚀 Start Convert")
         self.start_btn.setStyleSheet("""
             QPushButton {
+                font-family: Roboto;
                 background-color: #4CAF50;
                 color: white;
                 font-weight: bold;
@@ -286,6 +289,7 @@ class VoiceToolUI(QWidget):
         self.reload_config_btn = QPushButton("🔄 Reload Config")
         self.reload_config_btn.setStyleSheet("""
             QPushButton {
+                font-family: Roboto;
                 background-color: #9C27B0;
                 color: white;
                 font-weight: bold;
@@ -304,6 +308,7 @@ class VoiceToolUI(QWidget):
         self.export_srt_btn = QPushButton("📝 Export SRT")
         self.export_srt_btn.setStyleSheet("""
             QPushButton {
+                font-family: Roboto;
                 background-color: #2196F3;
                 color: white;
                 font-weight: bold;
@@ -341,6 +346,7 @@ class VoiceToolUI(QWidget):
         self.voice_combo.currentIndexChanged.connect(self.on_voice_changed)
         self.voice_combo.setStyleSheet("""
             QComboBox {
+                font-family: Roboto;
                 background-color: #f0f0f0;
                 border: 2px solid #ddd;
                 border-radius: 8px;
@@ -577,6 +583,7 @@ class VoiceToolUI(QWidget):
         # Style cho table
         self.table.setStyleSheet("""
             QTableWidget {
+                font-family: Roboto;
                 background-color: #ffffff;
                 alternate-background-color: #f8f9fa;
                 gridline-color: #dee2e6;
@@ -585,6 +592,7 @@ class VoiceToolUI(QWidget):
                 font-size: 12px;
             }
             QTableWidget::item {
+                font-family: Roboto;
                 padding: 4px;
                 border-bottom: 1px solid #eee;
                 text-align: center;
@@ -594,6 +602,7 @@ class VoiceToolUI(QWidget):
                 color: #1976d2;
             }
             QHeaderView::section {
+                font-family: Roboto;
                 background-color: #2196F3;
                 color: white;
                 padding: 8px 4px;
@@ -1101,8 +1110,8 @@ class VoiceToolUI(QWidget):
 
         else:
             fail_item = centered_item(real_file_path_or_error)
-            fail_item.setBackground(QColor("red"))
-            fail_item.setForeground(QColor("white"))
+            fail_item.setBackground(QColor("lightpink"))
+            fail_item.setForeground(QColor("red"))
             self.table.setItem(row, 4, fail_item)
 
         self.cleanup_thread(self.sender())

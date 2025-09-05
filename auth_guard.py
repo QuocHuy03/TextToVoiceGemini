@@ -103,13 +103,13 @@ class KeyLoginDialog(QDialog):
         
         # Tiêu đề
         title = QLabel("Đăng nhập qua API Server")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2196F3;")
+        title.setStyleSheet("font-family: Roboto; font-size: 16px; font-weight: bold; color: #2196F3;")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         
         # Mô tả
         desc = QLabel("Nhập KEY để sử dụng công cụ\nHệ thống sẽ kiểm tra qua API Server")
-        desc.setStyleSheet("font-size: 12px; color: #666;")
+        desc.setStyleSheet("font-family: Roboto; font-size: 12px; color: #666;")
         desc.setAlignment(Qt.AlignCenter)
         layout.addWidget(desc)
         
@@ -119,6 +119,7 @@ class KeyLoginDialog(QDialog):
         self.key_input.setMinimumHeight(35)
         self.key_input.setStyleSheet("""
             QLineEdit {
+                font-family: Roboto;
                 font-size: 14px;
                 padding: 8px;
                 border: 2px solid #ddd;
@@ -171,6 +172,7 @@ class KeyLoginDialog(QDialog):
 
         self.submit_btn.setStyleSheet("""
             QPushButton {
+                font-family: Roboto;
                 background-color: #2196F3;
                 color: white;
                 border: none;
