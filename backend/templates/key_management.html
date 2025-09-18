@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice API - Key Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .main-content {
+            padding: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card.users { border-left-color: #28a745; }
+        .stat-card.keys { border-left-color: #007bff; }
+        .stat-card.today { border-left-color: #ffc107; }
+        .stat-card.month { border-left-color: #dc3545; }
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.7;
+        }
+        .table-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .stats-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 4px solid #28a745;
+            margin-bottom: 2rem;
+        }
+        
+        .stats-card .icon {
+            font-size: 2.5rem;
+            color: #28a745;
+            opacity: 0.7;
+        }
+        
+        .main-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .nav-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px 10px 0 0;
+            margin-right: 0.5rem;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+        }
+        
+        .btn-add {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .btn-add:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+            color: white;
+        }
+        
+        .btn-delete {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+            color: white;
+        }
+        
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .table thead th {
+            background: #f8f9fa;
+            border: none;
+            font-weight: 600;
+            color: #495057;
+            padding: 1rem;
+        }
+        
+        .table tbody td {
+            border: none;
+            padding: 1rem;
+            vertical-align: middle;
+        }
+        
+        .table tbody tr {
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .status-active {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .status-inactive {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .action-btn {
+            background: none;
+            border: none;
+            color: #6c757d;
+            font-size: 1.1rem;
+            margin: 0 0.25rem;
+            padding: 0.5rem;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .action-btn:hover {
+            background: #f8f9fa;
+            color: #495057;
+        }
+        
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+            border: none;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #28a745;
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+        
+        .form-check-input:checked {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .btn-modal {
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+            border: none;
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+        }
+        
+        .btn-cancel:hover, .btn-save:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar">
+                <div class="p-3">
+                    <h4 class="text-center mb-4">
+                        <i class="fas fa-microphone-alt me-2"></i>
+                        Voice API
+                    </h4>
+                    
+                    <nav class="nav flex-column">
+                        <a class="nav-link active" href="/admin/dashboard" data-section="dashboard">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <a class="nav-link" href="/admin/users">
+                            <i class="fas fa-users me-2"></i>Users
+                        </a>
+                        <a class="nav-link" href="/admin/keys">
+                            <i class="fas fa-cogs me-2"></i>Key Management
+                        </a>
+                        <a class="nav-link" href="/admin/gemini-keys" data-section="gemini-keys">
+                            <i class="fas fa-robot me-2"></i>Gemini Keys
+                        </a>
+                        <a class="nav-link" href="/admin/usage" data-section="usage">
+                            <i class="fas fa-chart-bar me-2"></i>Usage Stats
+                        </a>
+                        <a class="nav-link" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <!-- Stats Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="stat-card keys">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="totalKeys">0</h3>
+                                    <p class="mb-0 text-muted">Tổng Keys</p>
+                                </div>
+                                <div class="stat-icon text-primary">
+                                    <i class="fas fa-key"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card today">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="totalUsage">0</h3>
+                                    <p class="mb-0 text-muted">Usage Hôm nay</p>
+                                </div>
+                                <div class="stat-icon text-warning">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card users">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="activeKeys">0</h3>
+                                    <p class="mb-0 text-muted">Keys Active</p>
+                                </div>
+                                <div class="stat-icon text-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card month">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="expiredKeys">0</h3>
+                                    <p class="mb-0 text-muted">Keys Hết hạn</p>
+                                </div>
+                                <div class="stat-icon text-danger">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Table Card -->
+                <div class="table-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0">
+                            <i class="fas fa-key me-2"></i>Quản lý API Keys
+                        </h4>
+                        <div>
+                            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addKeyModal">
+                                <i class="fas fa-plus me-2"></i>Thêm Key
+                            </button>
+                            <button class="btn btn-success me-2" onclick="loadKeys()">
+                                <i class="fas fa-refresh me-2"></i>Load Keys
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteSelectedKeys()">
+                                <i class="fas fa-trash me-2"></i>Xóa Key
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                    </th>
+                                    <th>API Key</th>
+                                    <th>Device ID</th>
+                                    <th>Daily Limit</th>
+                                    <th>Daily Usage</th>
+                                    <th>Remaining</th>
+                                    <th>Expires</th>
+                                    <th>Last Login</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="keysTableBody">
+                                <tr id="loadingRow">
+                                    <td colspan="11" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <div class="mt-2">Đang tải dữ liệu...</div>
+                                        <div class="mt-2">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadKeys()">
+                                                <i class="fas fa-refresh me-1"></i>Thử lại
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <nav aria-label="Keys pagination" class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-muted">
+                                Hiển thị <span id="showingFrom">0</span> - <span id="showingTo">0</span> 
+                                trong tổng số <span id="totalKeys">0</span> keys
+                            </div>
+                            <ul class="pagination pagination-sm mb-0" id="keysPagination">
+                                <!-- Pagination buttons will be generated here -->
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Expired Keys Tab -->
+                <div class="tab-pane fade" id="expired-keys" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="selectAllExpired" onchange="toggleSelectAllExpired()">
+                                    </th>
+                                    <th>Key</th>
+                                    <th>Device ID</th>
+                                    <th>Limit</th>
+                                    <th>Expires</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expiredKeysTableBody">
+                                <!-- Expired keys will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Statistics Tab -->
+                <div class="tab-pane fade" id="stats" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-pie me-2"></i>Usage Distribution</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="usageChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-bar me-2"></i>Daily Usage</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="dailyChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Key Modal -->
+    <div class="modal fade" id="addKeyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus me-2"></i> Thêm Key Mới
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addKeyForm">
+                        <div class="mb-3">
+                            <label for="usageLimit" class="form-label">Số lượt sử dụng</label>
+                            <input type="number" class="form-control" id="usageLimit" value="100" min="1" max="10000">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="expirationDate" class="form-label">Ngày hết hạn</label>
+                            <div class="input-group">
+                                <input type="date" class="form-control" id="expirationDate">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="activateKey" checked>
+                                <label class="form-check-label" for="activateKey">
+                                    Kích hoạt key
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="customKey" class="form-label">Key tùy chỉnh (tùy chọn)</label>
+                            <input type="text" class="form-control" id="customKey" placeholder="Để trống để tự động tạo">
+                            <div class="form-text">Để trống để tự động tạo</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel btn-modal" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-save btn-modal" onclick="addNewKey()">Thêm Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Key Modal -->
+    <div class="modal fade" id="editKeyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Chỉnh sửa Key
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editKeyForm">
+                        <input type="hidden" id="editKeyId">
+                        
+                        <div class="mb-3">
+                            <label for="editKeyValue" class="form-label">Key</label>
+                            <input type="text" class="form-control" id="editKeyValue" readonly style="background-color: #f8f9fa;">
+                            <div class="form-text">API Key không thể thay đổi</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editDeviceId" class="form-label">Device ID</label>
+                            <input type="text" class="form-control" id="editDeviceId" value="Chưa bind" readonly style="background-color: #f8f9fa;">
+                            <div class="form-text">Device ID sẽ được cập nhật khi bind</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editDailyLimit" class="form-label">Số lượt sử dụng</label>
+                            <input type="number" class="form-control" id="editDailyLimit" min="1" max="10000" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editExpirationDate" class="form-label">Ngày hết hạn</label>
+                            <div class="input-group">
+                                <input type="date" class="form-control" id="editExpirationDate">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                            </div>
+                            <div class="form-text">Để trống để không giới hạn thời gian</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="editActivateKey" checked>
+                                <label class="form-check-label" for="editActivateKey">
+                                    Kích hoạt key
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6 class="text-muted">Thông tin thêm</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Usage hiện tại:</small>
+                                    <div id="editCurrentUsage" class="fw-bold">0</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Ngày tạo:</small>
+                                    <div id="editCreatedAt" class="fw-bold">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-success" onclick="saveEditKey()">Cập nhật Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script>
+        console.log('Script starting...');
+        
+        // Set default expiration date to 1 year from now
+        document.getElementById('expirationDate').value = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        // Load keys data
+        let isLoadingKeys = false; // Prevent multiple simultaneous requests
+        let allKeys = [];
+        let currentPage = 1;
+        const itemsPerPage = 30;
+        
+        function loadKeys() {
+            if (isLoadingKeys) {
+                console.log('Already loading keys, skipping...');
+                return;
+            }
+            
+            isLoadingKeys = true;
+            console.log('Loading keys...');
+            
+            // Add timeout to prevent infinite loading
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            fetch('/api/admin/keys', {
+                signal: controller.signal
+            })
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    console.log('Response status:', response.status);
+                    
+                    if (response.status === 403) {
+                        console.log('Admin session required, redirecting to login...');
+                        alert('Vui lòng đăng nhập admin trước!');
+                        window.location.href = '/admin/login';
+                        return;
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return; // Skip if redirected
+                    console.log('API response:', data);
+                    
+                    if (data.success) {
+                        const keys = data.keys.map(key => ({
+                            id: key.id,
+                            key: key.api_key,
+                            deviceId: key.device_id ? `${key.device_id.substring(0, 5)}***${key.device_id.substring(key.device_id.length - 5)}` : 'Chưa bind',
+                            limit: key.daily_limit,
+                            usage: key.daily_usage || 0,
+                            remaining: key.remaining_daily || 0,
+                            expires: key.expires_at ? formatDate(key.expires_at) : 'Không giới hạn',
+                            status: key.is_active ? 'Active' : 'Inactive',
+                            isActive: key.is_active,
+                            username: key.username,
+                            keyName: key.key_name,
+                            lastLogin: key.last_login ? formatVietnamTime(key.last_login) : 'Chưa đăng nhập'
+                        }));
+                        
+                        console.log('Processed keys:', keys);
+                        allKeys = keys; // Store all keys
+                        renderKeysTable();
+                        updateStats(allKeys);
+                        renderPagination();
+                    } else {
+                        console.error('Failed to load keys:', data.error);
+                        showError('Không thể tải dữ liệu: ' + (data.error || 'Lỗi không xác định'));
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error('Error loading keys:', error);
+                    
+                    if (error.name === 'AbortError') {
+                        showError('Timeout! Vui lòng kiểm tra kết nối mạng.');
+                    } else {
+                        showError('Lỗi kết nối: ' + error.message);
+                    }
+                })
+                .finally(() => {
+                    isLoadingKeys = false;
+                });
+        }
+        
+        function showError(message) {
+            const tbody = document.getElementById('keysTableBody');
+            const loadingRow = document.getElementById('loadingRow');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" class="text-center py-4 text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <div>${message}</div>
+                        <button class="btn btn-primary mt-2" onclick="loadKeys()">
+                            <i class="fas fa-refresh me-2"></i>Thử lại
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renderKeysTable() {
+            console.log('Rendering keys table with', allKeys.length, 'total keys');
+            const tbody = document.getElementById('keysTableBody');
+            console.log('Found tbody element:', tbody);
+            
+            // Remove loading row
+            const loadingRow = document.getElementById('loadingRow');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            
+            tbody.innerHTML = '';
+
+            if (allKeys.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <div>Không có API keys nào</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Calculate pagination
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, allKeys.length);
+            const pageKeys = allKeys.slice(startIndex, endIndex);
+
+            pageKeys.forEach(key => {
+                console.log('Creating row for key:', key);
+                const row = createKeyRow(key);
+                tbody.appendChild(row);
+            });
+            
+            console.log('Finished rendering table');
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(allKeys.length / itemsPerPage);
+            const paginationContainer = document.getElementById('keysPagination');
+            const showingFrom = document.getElementById('showingFrom');
+            const showingTo = document.getElementById('showingTo');
+            const totalKeys = document.getElementById('totalKeys');
+
+            // Update showing info
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, allKeys.length);
+            
+            showingFrom.textContent = allKeys.length > 0 ? startIndex + 1 : 0;
+            showingTo.textContent = endIndex;
+            totalKeys.textContent = allKeys.length;
+
+            // Clear existing pagination
+            paginationContainer.innerHTML = '';
+
+            if (totalPages <= 1) {
+                return; // No pagination needed
+            }
+
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1})">Trước</a>`;
+            paginationContainer.appendChild(prevLi);
+
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+
+            if (startPage > 1) {
+                const firstLi = document.createElement('li');
+                firstLi.className = 'page-item';
+                firstLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(1)">1</a>`;
+                paginationContainer.appendChild(firstLi);
+
+                if (startPage > 2) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                    paginationContainer.appendChild(ellipsisLi);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
+                paginationContainer.appendChild(li);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                    paginationContainer.appendChild(ellipsisLi);
+                }
+
+                const lastLi = document.createElement('li');
+                lastLi.className = 'page-item';
+                lastLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${totalPages})">${totalPages}</a>`;
+                paginationContainer.appendChild(lastLi);
+            }
+
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1})">Sau</a>`;
+            paginationContainer.appendChild(nextLi);
+        }
+
+        function changePage(page) {
+            const totalPages = Math.ceil(allKeys.length / itemsPerPage);
+            if (page < 1 || page > totalPages) return;
+            
+            currentPage = page;
+            renderKeysTable();
+            renderPagination();
+        }
+
+        function createKeyRow(key) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="key-checkbox" value="${key.id}">
+                </td>
+                <td><code>${key.key.substring(0, 10)}...</code></td>
+                <td>${key.deviceId}</td>
+                <td><span class="badge bg-info">${key.limit}</span></td>
+                <td><span class="badge bg-warning">${key.usage}</span></td>
+                <td><span class="badge ${key.remaining > 0 ? 'bg-success' : 'bg-danger'}">${key.remaining}</span></td>
+                <td>${key.expires}</td>
+                <td>${key.lastLogin}</td>
+                <td>
+                    <span class="badge ${key.isActive ? 'bg-success' : 'bg-danger'}">
+                        <i class="fas fa-check-circle me-1"></i>${key.status}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editKey(${key.id})" title="Chỉnh sửa">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning me-1" onclick="toggleKey(${key.id})" title="Toggle Status">
+                        <i class="fas fa-power-off"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteKey(${key.id})" title="Xóa">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            return row;
+        }
+
+        function updateStats(keys) {
+            const totalKeys = keys.length;
+            const activeKeys = keys.filter(key => key.isActive).length;
+            const expiredKeys = keys.filter(key => !key.isActive || new Date(key.expires.split('/').reverse().join('-')) < new Date()).length;
+            const totalUsage = keys.reduce((sum, key) => sum + (key.usage || 0), 0);
+            
+            document.getElementById('totalKeys').textContent = totalKeys;
+            document.getElementById('totalUsage').textContent = totalUsage;
+            document.getElementById('activeKeys').textContent = activeKeys;
+            document.getElementById('expiredKeys').textContent = expiredKeys;
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('#keysTableBody .key-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        function toggleSelectAllExpired() {
+            const selectAll = document.getElementById('selectAllExpired');
+            const checkboxes = document.querySelectorAll('#expiredKeysTableBody .key-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        function addNewKey() {
+            const usageLimit = document.getElementById('usageLimit').value;
+            const expirationDate = document.getElementById('expirationDate').value;
+            const activateKey = document.getElementById('activateKey').checked;
+            const customKey = document.getElementById('customKey').value;
+
+            // Calculate expiration days
+            const expiresDays = expirationDate ? Math.ceil((new Date(expirationDate) - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
+            // Create key via API
+            fetch('/api/admin/keys', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: 'admin', // Default to admin user, can be made configurable
+                    key_name: 'Admin Created Key',
+                    daily_limit: parseInt(usageLimit),
+                    monthly_limit: parseInt(usageLimit) * 30,
+                    expires_days: expiresDays,
+                    custom_key: customKey || null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and reset form
+                    bootstrap.Modal.getInstance(document.getElementById('addKeyModal')).hide();
+                    document.getElementById('addKeyForm').reset();
+                    document.getElementById('expirationDate').value = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+                    // Reload keys
+                    loadKeys();
+                    
+                    // Show success message
+                    alert('Key đã được thêm thành công!');
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Lỗi khi thêm key: ' + error.message);
+            });
+        }
+
+        function generateRandomKey() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 16; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN') + ' 00:00';
+        }
+
+        function formatVietnamTime(dateString) {
+            const date = new Date(dateString);
+            // Convert to Vietnam timezone (UTC+7)
+            const vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+            return vietnamTime.toLocaleString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        function editKey(keyId) {
+            // Get key data from API
+            fetch('/api/admin/keys')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const key = data.keys.find(k => k.id === keyId);
+                        if (key) {
+                            // Format expiration date
+                            let expirationDate = '';
+                            if (key.expires_at) {
+                                const expiresDate = new Date(key.expires_at);
+                                expirationDate = expiresDate.toISOString().split('T')[0];
+                            }
+                            
+                            // Populate edit form
+                            document.getElementById('editKeyId').value = keyId;
+                            document.getElementById('editKeyValue').value = key.api_key;
+                            document.getElementById('editDeviceId').value = 'Chưa bind';
+                            document.getElementById('editDailyLimit').value = key.daily_limit;
+                            document.getElementById('editExpirationDate').value = expirationDate;
+                            document.getElementById('editActivateKey').checked = key.is_active;
+                            
+                            // Populate additional info
+                            document.getElementById('editCurrentUsage').textContent = '0'; // TODO: Get actual usage
+                            document.getElementById('editCreatedAt').textContent = new Date(key.created_at).toLocaleDateString('vi-VN');
+                            
+                            // Show edit modal
+                            const editModal = new bootstrap.Modal(document.getElementById('editKeyModal'));
+                            editModal.show();
+                        } else {
+                            alert('Không tìm thấy key!');
+                        }
+                    } else {
+                        alert('Lỗi khi tải dữ liệu key: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Lỗi khi tải dữ liệu key: ' + error.message);
+                });
+        }
+
+        function saveEditKey() {
+            const keyId = document.getElementById('editKeyId').value;
+            const dailyLimit = parseInt(document.getElementById('editDailyLimit').value);
+            const expirationDate = document.getElementById('editExpirationDate').value;
+            const activateKey = document.getElementById('editActivateKey').checked;
+            
+            if (!dailyLimit) {
+                alert('Vui lòng điền đầy đủ thông tin!');
+                return;
+            }
+            
+            // Calculate expiration days
+            let expiresDays = 0;
+            if (expirationDate) {
+                const expiresDate = new Date(expirationDate);
+                const now = new Date();
+                expiresDays = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
+                if (expiresDays < 0) expiresDays = 0;
+            }
+            
+            // Send PUT request to update key
+            fetch(`/api/admin/keys/${keyId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    key_name: 'Updated Key', // Default name
+                    daily_limit: dailyLimit,
+                    monthly_limit: dailyLimit * 30,
+                    expires_days: expiresDays
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and reload keys
+                    bootstrap.Modal.getInstance(document.getElementById('editKeyModal')).hide();
+                    loadKeys();
+                    alert('Key đã được cập nhật thành công!');
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Lỗi khi cập nhật key: ' + error.message);
+            });
+        }
+
+        function deleteKey(keyId) {
+            if (confirm('Bạn có chắc chắn muốn xóa key này?')) {
+                fetch(`/api/admin/keys/${keyId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadKeys(); // Reload the table
+                        alert('Key đã được xóa!');
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Lỗi khi xóa key: ' + error.message);
+                });
+            }
+        }
+
+        function toggleKey(keyId) {
+            fetch(`/api/admin/keys/${keyId}/toggle`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadKeys(); // Reload the table
+                    alert('Trạng thái key đã được cập nhật!');
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Lỗi khi cập nhật key: ' + error.message);
+            });
+        }
+
+        function deleteSelectedKeys() {
+            const selectedCheckboxes = document.querySelectorAll('#keysTableBody .key-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Vui lòng chọn ít nhất một key để xóa');
+                return;
+            }
+
+            if (confirm(`Bạn có chắc chắn muốn xóa ${selectedCheckboxes.length} key đã chọn?`)) {
+                const selectedIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+                
+                // Delete each key one by one
+                let deletedCount = 0;
+                const totalToDelete = selectedIds.length;
+                
+                selectedIds.forEach(keyId => {
+                    fetch(`/api/admin/keys/${keyId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            deletedCount++;
+                            
+                            // If all keys are deleted, reload the table
+                            if (deletedCount === totalToDelete) {
+                                loadKeys();
+                                alert(`${deletedCount} key đã được xóa!`);
+                            }
+                        } else {
+                            console.error('Error deleting key:', data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                });
+            }
+        }
+
+        // Initialize charts when stats tab is shown
+        const statsTab = document.getElementById('stats-tab');
+        if (statsTab) {
+            statsTab.addEventListener('shown.bs.tab', function() {
+                // Usage Distribution Chart
+                const usageCtx = document.getElementById('usageChart').getContext('2d');
+                new Chart(usageCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Active Keys', 'Inactive Keys', 'Expired Keys'],
+                        datasets: [{
+                            data: [15, 3, 2],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+
+                // Daily Usage Chart
+                const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+                new Chart(dailyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{
+                            label: 'Usage',
+                            data: [12, 19, 3, 5, 2, 3, 7],
+                            backgroundColor: '#28a745'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // Load keys when page loads - Single approach to avoid duplicate calls
+        console.log('Setting up auto-load for keys...');
+        
+        // Use a single method to avoid duplicate calls
+        function autoLoadKeys() {
+            console.log('Auto-loading keys...');
+            loadKeys();
+        }
+        
+        if (document.readyState === 'loading') {
+            console.log('Document still loading, waiting for DOMContentLoaded...');
+            document.addEventListener('DOMContentLoaded', autoLoadKeys);
+        } else {
+            console.log('Document already ready, loading keys immediately...');
+            autoLoadKeys();
+        }
+
+        // Set active navigation based on current page
+        function setActiveNavigation() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+            
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                const href = link.getAttribute('href');
+                
+                if (href === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Set active navigation when page loads
+        setActiveNavigation();
+    </script>
+</body>
+</html>

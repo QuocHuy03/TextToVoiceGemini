@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice API - Gemini Keys Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .main-content {
+            padding: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card.users { border-left-color: #28a745; }
+        .stat-card.keys { border-left-color: #007bff; }
+        .stat-card.today { border-left-color: #ffc107; }
+        .stat-card.month { border-left-color: #dc3545; }
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.7;
+        }
+        .table-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar">
+                <div class="p-3">
+                    <h4 class="text-center mb-4">
+                        <i class="fas fa-microphone-alt me-2"></i>
+                        Voice API
+                    </h4>
+                    
+                    <nav class="nav flex-column">
+                        <a class="nav-link" href="/admin/dashboard" data-section="dashboard">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <a class="nav-link" href="/admin/users">
+                            <i class="fas fa-users me-2"></i>Users
+                        </a>
+                        <a class="nav-link" href="/admin/keys">
+                            <i class="fas fa-cogs me-2"></i>Key Management
+                        </a>
+                        <a class="nav-link active" href="/admin/gemini-keys" data-section="gemini-keys">
+                            <i class="fas fa-robot me-2"></i>Gemini Keys
+                        </a>
+                        <a class="nav-link" href="/admin/usage" data-section="usage">
+                            <i class="fas fa-chart-bar me-2"></i>Usage Stats
+                        </a>
+                        <a class="nav-link" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <!-- Stats Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="stat-card keys">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="totalGeminiKeys">0</h3>
+                                    <p class="mb-0 text-muted">Tổng Gemini Keys</p>
+                                </div>
+                                <div class="stat-icon text-primary">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card today">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="activeGeminiKeys">0</h3>
+                                    <p class="mb-0 text-muted">Keys Active</p>
+                                </div>
+                                <div class="stat-icon text-warning">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card users">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="totalUsage">0</h3>
+                                    <p class="mb-0 text-muted">Usage Hôm nay</p>
+                                </div>
+                                <div class="stat-icon text-success">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card month">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="expiredKeys">0</h3>
+                                    <p class="mb-0 text-muted">Keys Hết hạn</p>
+                                </div>
+                                <div class="stat-icon text-danger">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Table Card -->
+                <div class="table-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0">
+                            <i class="fas fa-robot me-2"></i>Quản lý Gemini Keys
+                        </h4>
+                        <div>
+                            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addGeminiKeyModal">
+                                <i class="fas fa-plus me-2"></i>Thêm Gemini Key
+                            </button>
+                            <button class="btn btn-success me-2" onclick="loadGeminiKeys()">
+                                <i class="fas fa-refresh me-2"></i>Load Keys
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteSelectedGeminiKeys()">
+                                <i class="fas fa-trash me-2"></i>Xóa Key
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="selectAllGemini" onchange="toggleSelectAllGemini()">
+                                    </th>
+                                    <th>STT</th>
+                                    <th>API Key</th>
+                                    <th>Usage Count</th>
+                                    <th>Status</th>
+                                    <th>Quota Status</th>
+                                    <th>Last Used</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="geminiKeysTableBody">
+                                <tr id="loadingGeminiRow">
+                                    <td colspan="8" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <div class="mt-2">Đang tải dữ liệu...</div>
+                                        <div class="mt-2">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadGeminiKeys()">
+                                                <i class="fas fa-refresh me-1"></i>Thử lại
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <nav aria-label="Gemini keys pagination" class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-muted">
+                                Hiển thị <span id="showingFromGemini">0</span> - <span id="showingToGemini">0</span> 
+                                trong tổng số <span id="totalGeminiKeys">0</span> keys
+                            </div>
+                            <ul class="pagination pagination-sm mb-0" id="geminiKeysPagination">
+                                <!-- Pagination buttons will be generated here -->
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Gemini Key Modal -->
+    <div class="modal fade" id="addGeminiKeyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus me-2"></i>Thêm Gemini Key
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addGeminiKeyForm">
+                      
+                        
+                        <div class="mb-3">
+                            <label for="geminiApiKey" class="form-label">API Key</label>
+                            <input type="text" class="form-control" id="geminiApiKey" placeholder="AIzaSy..." required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="activateGeminiKey" checked>
+                                <label class="form-check-label" for="activateGeminiKey">
+                                    Kích hoạt key
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="addNewGeminiKey()">Thêm Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        console.log('Script starting...');
+        
+        // Load gemini keys data
+        let isLoadingGeminiKeys = false;
+        let allGeminiKeys = [];
+        let currentGeminiPage = 1;
+        const geminiItemsPerPage = 30;
+        
+        function loadGeminiKeys() {
+            if (isLoadingGeminiKeys) {
+                console.log('Already loading gemini keys, skipping...');
+                return;
+            }
+            
+            isLoadingGeminiKeys = true;
+            console.log('Loading gemini keys...');
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            fetch('/api/admin/gemini-keys', {
+                signal: controller.signal
+            })
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    console.log('Response status:', response.status);
+                    
+                    if (response.status === 403) {
+                        console.log('Admin session required, redirecting to login...');
+                        alert('Vui lòng đăng nhập admin trước!');
+                        window.location.href = '/admin/login';
+                        return;
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return;
+                    console.log('API response:', data);
+                    
+                    if (data.success) {
+                        const keys = data.keys.map(key => ({
+                            id: key.id,
+                            apiKey: key.api_key,
+                            isActive: key.is_active,
+                            usageCount: key.usage_count || 0,
+                            lastUsed: key.last_used,
+                            lastQuotaExceeded: key.last_quota_exceeded,
+                            createdAt: key.created_at
+                        }));
+                        
+                        console.log('Processed gemini keys:', keys);
+                        allGeminiKeys = keys; // Store all keys
+                        renderGeminiKeysTable();
+                        updateGeminiStats(allGeminiKeys);
+                        renderGeminiPagination();
+                    } else {
+                        console.error('Failed to load gemini keys:', data.error);
+                        showGeminiError('Không thể tải dữ liệu: ' + (data.error || 'Lỗi không xác định'));
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error('Error loading gemini keys:', error);
+                    
+                    if (error.name === 'AbortError') {
+                        showGeminiError('Timeout! Vui lòng kiểm tra kết nối mạng.');
+                    } else {
+                        showGeminiError('Lỗi kết nối: ' + error.message);
+                    }
+                })
+                .finally(() => {
+                    isLoadingGeminiKeys = false;
+                });
+        }
+        
+        function showGeminiError(message) {
+            const tbody = document.getElementById('geminiKeysTableBody');
+            const loadingRow = document.getElementById('loadingGeminiRow');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <div>${message}</div>
+                        <button class="btn btn-primary mt-2" onclick="loadGeminiKeys()">
+                            <i class="fas fa-refresh me-2"></i>Thử lại
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renderGeminiKeysTable() {
+            console.log('Rendering gemini keys table with', allGeminiKeys.length, 'total keys');
+            const tbody = document.getElementById('geminiKeysTableBody');
+            console.log('Found tbody element:', tbody);
+            
+            const loadingRow = document.getElementById('loadingGeminiRow');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            
+            tbody.innerHTML = '';
+
+            if (allGeminiKeys.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <div>Không có Gemini keys nào</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Calculate pagination
+            const startIndex = (currentGeminiPage - 1) * geminiItemsPerPage;
+            const endIndex = Math.min(startIndex + geminiItemsPerPage, allGeminiKeys.length);
+            const pageKeys = allGeminiKeys.slice(startIndex, endIndex);
+
+            pageKeys.forEach((key, index) => {
+                console.log('Creating row for gemini key:', key);
+                const row = createGeminiKeyRow(key, startIndex + index);
+                tbody.appendChild(row);
+            });
+            
+            console.log('Finished rendering gemini keys table');
+        }
+
+        function renderGeminiPagination() {
+            const totalPages = Math.ceil(allGeminiKeys.length / geminiItemsPerPage);
+            const paginationContainer = document.getElementById('geminiKeysPagination');
+            const showingFrom = document.getElementById('showingFromGemini');
+            const showingTo = document.getElementById('showingToGemini');
+            const totalKeys = document.getElementById('totalGeminiKeys');
+
+            // Update showing info
+            const startIndex = (currentGeminiPage - 1) * geminiItemsPerPage;
+            const endIndex = Math.min(startIndex + geminiItemsPerPage, allGeminiKeys.length);
+            
+            showingFrom.textContent = allGeminiKeys.length > 0 ? startIndex + 1 : 0;
+            showingTo.textContent = endIndex;
+            totalKeys.textContent = allGeminiKeys.length;
+
+            // Clear existing pagination
+            paginationContainer.innerHTML = '';
+
+            if (totalPages <= 1) {
+                return; // No pagination needed
+            }
+
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentGeminiPage === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="changeGeminiPage(${currentGeminiPage - 1})">Trước</a>`;
+            paginationContainer.appendChild(prevLi);
+
+            // Page numbers
+            const startPage = Math.max(1, currentGeminiPage - 2);
+            const endPage = Math.min(totalPages, currentGeminiPage + 2);
+
+            if (startPage > 1) {
+                const firstLi = document.createElement('li');
+                firstLi.className = 'page-item';
+                firstLi.innerHTML = `<a class="page-link" href="#" onclick="changeGeminiPage(1)">1</a>`;
+                paginationContainer.appendChild(firstLi);
+
+                if (startPage > 2) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                    paginationContainer.appendChild(ellipsisLi);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentGeminiPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="changeGeminiPage(${i})">${i}</a>`;
+                paginationContainer.appendChild(li);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                    paginationContainer.appendChild(ellipsisLi);
+                }
+
+                const lastLi = document.createElement('li');
+                lastLi.className = 'page-item';
+                lastLi.innerHTML = `<a class="page-link" href="#" onclick="changeGeminiPage(${totalPages})">${totalPages}</a>`;
+                paginationContainer.appendChild(lastLi);
+            }
+
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentGeminiPage === totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="changeGeminiPage(${currentGeminiPage + 1})">Sau</a>`;
+            paginationContainer.appendChild(nextLi);
+        }
+
+        function changeGeminiPage(page) {
+            const totalPages = Math.ceil(allGeminiKeys.length / geminiItemsPerPage);
+            if (page < 1 || page > totalPages) return;
+            
+            currentGeminiPage = page;
+            renderGeminiKeysTable();
+            renderGeminiPagination();
+        }
+
+        function createGeminiKeyRow(key, index) {
+            const row = document.createElement('tr');
+            
+            // Determine quota status
+            let quotaStatus = '';
+            let quotaBadgeClass = 'bg-success';
+            if (key.lastQuotaExceeded) {
+                const quotaDate = new Date(key.lastQuotaExceeded);
+                const today = new Date();
+                const isToday = quotaDate.toDateString() === today.toDateString();
+                
+                if (isToday) {
+                    quotaStatus = 'Quota Exceeded Today';
+                    quotaBadgeClass = 'bg-danger';
+                } else {
+                    quotaStatus = 'Available';
+                    quotaBadgeClass = 'bg-success';
+                }
+            } else {
+                quotaStatus = 'Available';
+                quotaBadgeClass = 'bg-success';
+            }
+            
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="gemini-key-checkbox" value="${key.id}">
+                </td>
+                <td><strong>${index + 1}</strong></td>
+                <td><code>${key.apiKey.substring(0, 15)}...</code></td>
+                <td><span class="badge bg-primary">${key.usageCount}</span></td>
+                <td>
+                    <span class="badge ${key.isActive ? 'bg-success' : 'bg-danger'}">
+                        <i class="fas fa-check-circle me-1"></i>${key.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${quotaBadgeClass}">
+                        <i class="fas fa-chart-line me-1"></i>${quotaStatus}
+                    </span>
+                </td>
+                <td>${key.lastUsed ? formatDate(key.lastUsed) : 'Chưa sử dụng'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteGeminiKey(${key.id})" title="Xóa">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            return row;
+        }
+
+        function updateGeminiStats(keys) {
+            const totalKeys = keys.length;
+            const activeKeys = keys.filter(key => key.isActive).length;
+            
+            document.getElementById('totalGeminiKeys').textContent = totalKeys;
+            document.getElementById('activeGeminiKeys').textContent = activeKeys;
+            document.getElementById('totalUsage').textContent = '0'; // TODO: Get actual usage
+            document.getElementById('expiredKeys').textContent = '0'; // TODO: Get expired count
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function toggleSelectAllGemini() {
+            const selectAll = document.getElementById('selectAllGemini');
+            const checkboxes = document.querySelectorAll('#geminiKeysTableBody .gemini-key-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        function addNewGeminiKey() {
+            const apiKey = document.getElementById('geminiApiKey').value;
+            const isActive = document.getElementById('activateGeminiKey').checked;
+
+            if (!apiKey) {
+                alert('Vui lòng nhập đầy đủ thông tin!');
+                return;
+            }
+
+            fetch('/api/admin/gemini-keys', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    api_key: apiKey,
+                    is_active: isActive
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Thêm Gemini key thành công!');
+                    document.getElementById('addGeminiKeyModal').querySelector('.btn-close').click();
+                    document.getElementById('addGeminiKeyForm').reset();
+                    loadGeminiKeys();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể thêm key'));
+                }
+            })
+            .catch(error => {
+                console.error('Error adding gemini key:', error);
+                alert('Lỗi kết nối!');
+            });
+        }
+
+        function deleteGeminiKey(keyId) {
+            if (!confirm('Bạn có chắc chắn muốn xóa Gemini key này?')) {
+                return;
+            }
+
+            fetch(`/api/admin/gemini-keys/${keyId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Xóa Gemini key thành công!');
+                    loadGeminiKeys();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể xóa key'));
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting gemini key:', error);
+                alert('Lỗi kết nối!');
+            });
+        }
+
+        function deleteSelectedGeminiKeys() {
+            const checkboxes = document.querySelectorAll('#geminiKeysTableBody .gemini-key-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Vui lòng chọn ít nhất một Gemini key để xóa!');
+                return;
+            }
+
+            if (!confirm(`Bạn có chắc chắn muốn xóa ${checkboxes.length} Gemini key(s)?`)) {
+                return;
+            }
+
+            const deletePromises = Array.from(checkboxes).map(checkbox => {
+                const keyId = checkbox.value;
+                return fetch(`/api/admin/gemini-keys/${keyId}`, {
+                    method: 'DELETE'
+                });
+            });
+
+            Promise.all(deletePromises)
+                .then(responses => Promise.all(responses.map(r => r.json())))
+                .then(results => {
+                    const successCount = results.filter(r => r.success).length;
+                    alert(`${successCount} Gemini key(s) đã được xóa!`);
+                    loadGeminiKeys();
+                })
+                .catch(error => {
+                    console.error('Error deleting gemini keys:', error);
+                    alert('Lỗi khi xóa Gemini keys!');
+                });
+        }
+
+        // Auto-load gemini keys when page loads
+        console.log('Setting up auto-load for gemini keys...');
+        
+        function autoLoadGeminiKeys() {
+            console.log('Auto-loading gemini keys...');
+            loadGeminiKeys();
+        }
+        
+        if (document.readyState === 'loading') {
+            console.log('Document still loading, waiting for DOMContentLoaded...');
+            document.addEventListener('DOMContentLoaded', autoLoadGeminiKeys);
+        } else {
+            console.log('Document already ready, loading gemini keys immediately...');
+            autoLoadGeminiKeys();
+        }
+
+        // Set active navigation based on current page
+        function setActiveNavigation() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+            
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                const href = link.getAttribute('href');
+                
+                if (href === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Set active navigation when page loads
+        setActiveNavigation();
+    </script>
+</body>
+</html>

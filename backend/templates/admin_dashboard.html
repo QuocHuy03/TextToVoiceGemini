@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice API - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .main-content {
+            padding: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card.users { border-left-color: #28a745; }
+        .stat-card.keys { border-left-color: #007bff; }
+        .stat-card.today { border-left-color: #ffc107; }
+        .stat-card.month { border-left-color: #dc3545; }
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.7;
+        }
+        .table-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar">
+                <div class="p-3">
+                    <h4 class="text-center mb-4">
+                        <i class="fas fa-microphone-alt me-2"></i>
+                        Voice API
+                    </h4>
+                    
+                    <nav class="nav flex-column">
+                        <a class="nav-link active" href="/admin/dashboard" data-section="dashboard">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <a class="nav-link" href="/admin/users" data-section="users">
+                            <i class="fas fa-users me-2"></i>Users
+                        </a>
+                        <a class="nav-link" href="/admin/keys">
+                            <i class="fas fa-cogs me-2"></i>Key Management
+                        </a>
+                        <a class="nav-link" href="/admin/gemini-keys" data-section="gemini-keys">
+                            <i class="fas fa-robot me-2"></i>Gemini Keys
+                        </a>
+                        <a class="nav-link" href="/admin/usage" data-section="usage">
+                            <i class="fas fa-chart-bar me-2"></i>Usage Stats
+                        </a>
+                        <a class="nav-link" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </nav>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="content-section">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
+                        <span class="text-muted">Welcome back, {{ session.username }}</span>
+                    </div>
+                    
+                    <!-- Stats Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card users">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h3 class="mb-0">{{ stats.total_users }}</h3>
+                                        <p class="mb-0 text-muted">Total Users</p>
+                                    </div>
+                                    <i class="fas fa-users stat-icon text-success"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card keys">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h3 class="mb-0">{{ stats.total_keys }}</h3>
+                                        <p class="mb-0 text-muted">API Keys</p>
+                                    </div>
+                                    <i class="fas fa-key stat-icon text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card today">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h3 class="mb-0">{{ stats.today_usage }}</h3>
+                                        <p class="mb-0 text-muted">Today's Usage</p>
+                                    </div>
+                                    <i class="fas fa-calendar-day stat-icon text-warning"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card month">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h3 class="mb-0">{{ stats.month_usage }}</h3>
+                                        <p class="mb-0 text-muted">This Month</p>
+                                    </div>
+                                    <i class="fas fa-calendar-alt stat-icon text-danger"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Users -->
+                    <div class="table-card">
+                        <h5 class="mb-3"><i class="fas fa-users me-2"></i>Recent Users</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in stats.recent_users %}
+                                    <tr>
+                                        <td>{{ user[0] }}</td>
+                                        <td>{{ user[1] }}</td>
+                                        <td>{{ user[2] }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Users Section -->
+                <div id="users-section" class="content-section" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-users me-2"></i>Users Management</h2>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="fas fa-plus me-2"></i>Add User
+                        </button>
+                    </div>
+                    
+                    <div class="table-card">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Users will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                
+                <!-- Gemini Keys Section -->
+                <div id="gemini-keys-section" class="content-section" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-robot me-2"></i>Gemini API Keys</h2>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGeminiKeyModal">
+                            <i class="fas fa-plus me-2"></i>Add Gemini Key
+                        </button>
+                    </div>
+                    
+                    <div class="table-card">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="geminiKeysTable">
+                                <thead>
+                                    <tr>
+                                        <th>API Key</th>
+                                        <th>Status</th>
+                                        <th>Usage Count</th>
+                                        <th>Last Used</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Gemini Keys will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Usage Stats Section -->
+                <div id="usage-section" class="content-section" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-chart-bar me-2"></i>Usage Statistics</h2>
+                        <button class="btn btn-outline-danger" onclick="deleteUsageLogs()">
+                            <i class="fas fa-trash me-2"></i>Cleanup Old Logs
+                        </button>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="table-card">
+                                <h5 class="mb-3">Daily Usage Chart</h5>
+                                <canvas id="dailyChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="table-card">
+                                <h5 class="mb-3">Monthly Usage Chart</h5>
+                                <canvas id="monthlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUserForm">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select class="form-select" id="role">
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="addUser()">Add User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Gemini Key Modal -->
+    <div class="modal fade" id="addGeminiKeyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Gemini API Key</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addGeminiKeyForm">
+                        <div class="mb-3">
+                            <label for="geminiKey" class="form-label">Gemini API Key</label>
+                            <input type="text" class="form-control" id="geminiKey" required>
+                            <div class="form-text">Enter your Gemini API key for TTS generation</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="addGeminiKey()">Add Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script>
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (this.getAttribute('href') === '#') {
+                    e.preventDefault();
+                }
+                
+                // Remove active class from all links
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Hide all sections
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.style.display = 'none';
+                });
+                
+                // Show selected section
+                const sectionId = this.getAttribute('data-section') + '-section';
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    section.style.display = 'block';
+                    
+                // Load data for the section
+                if (sectionId === 'users-section') {
+                    loadUsers();
+                } else if (sectionId === 'gemini-keys-section') {
+                    loadGeminiKeys();
+                } else if (sectionId === 'usage-section') {
+                    loadUsageCharts();
+                }
+                }
+            });
+        });
+        
+        // Load users
+        function loadUsers() {
+            fetch('/api/admin/users')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const tbody = document.querySelector('#usersTable tbody');
+                        tbody.innerHTML = '';
+                        
+                        data.users.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${user.id}</td>
+                                <td>${user.username}</td>
+                                <td>${user.email}</td>
+                                <td><span class="badge bg-${user.role === 'admin' ? 'danger' : 'primary'}">${user.role}</span></td>
+                                <td><span class="badge bg-${user.is_active ? 'success' : 'secondary'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="toggleUser(${user.id}, ${user.is_active})">
+                                        ${user.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                    ${user.role !== 'admin' ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${user.id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>` : ''}
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                });
+        }
+        
+        // Load Gemini keys
+        function loadGeminiKeys() {
+            fetch('/api/admin/gemini-keys')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const tbody = document.querySelector('#geminiKeysTable tbody');
+                        tbody.innerHTML = '';
+                        
+                        data.keys.forEach(key => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td><code>${key.api_key}</code></td>
+                                <td><span class="badge bg-${key.is_active ? 'success' : 'secondary'}">${key.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>${key.usage_count}</td>
+                                <td>${key.last_used ? new Date(key.last_used).toLocaleString() : 'Never'}</td>
+                                <td>${new Date(key.created_at).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteGeminiKey(${key.id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                });
+        }
+        
+        // Add user
+        function addUser() {
+            const formData = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                role: document.getElementById('role').value
+            };
+            
+            fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('User added successfully!');
+                    document.getElementById('addUserForm').reset();
+                    bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                    loadUsers();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+        
+        // Add Gemini key
+        function addGeminiKey() {
+            const apiKey = document.getElementById('geminiKey').value;
+            
+            fetch('/api/admin/gemini-keys', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({api_key: apiKey})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Gemini API key added successfully!');
+                    document.getElementById('addGeminiKeyForm').reset();
+                    bootstrap.Modal.getInstance(document.getElementById('addGeminiKeyModal')).hide();
+                    loadGeminiKeys();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+
+        // Delete Gemini key
+        function deleteGeminiKey(keyId) {
+            if (confirm('Bạn có chắc chắn muốn xóa Gemini API key này?')) {
+                fetch(`/api/admin/gemini-keys/${keyId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Gemini API key đã được xóa!');
+                        loadGeminiKeys();
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Lỗi khi xóa Gemini API key: ' + error.message);
+                });
+            }
+        }
+
+        // Delete user
+        function deleteUser(userId) {
+            if (confirm('Bạn có chắc chắn muốn xóa user này? Tất cả API keys và usage logs của user sẽ bị xóa!')) {
+                fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('User đã được xóa!');
+                        loadUsers();
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Lỗi khi xóa user: ' + error.message);
+                });
+            }
+        }
+
+        // Delete usage logs
+        function deleteUsageLogs() {
+            const daysOld = prompt('Nhập số ngày để xóa usage logs cũ hơn (mặc định: 30):', '30');
+            
+            if (daysOld === null) return; // User cancelled
+            
+            const days = parseInt(daysOld);
+            if (isNaN(days) || days < 1) {
+                alert('Vui lòng nhập số ngày hợp lệ!');
+                return;
+            }
+
+            if (confirm(`Bạn có chắc chắn muốn xóa tất cả usage logs cũ hơn ${days} ngày?`)) {
+                fetch('/api/admin/usage-logs', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({days_old: days})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`${data.deleted_count} usage logs đã được xóa!`);
+                        loadUsageCharts(); // Reload charts
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Lỗi khi xóa usage logs: ' + error.message);
+                });
+            }
+        }
+
+        // Toggle user status
+        function toggleUser(userId, currentStatus) {
+            const newStatus = !currentStatus;
+            const action = newStatus ? 'activate' : 'deactivate';
+            
+            if (confirm(`Bạn có chắc chắn muốn ${action} user này?`)) {
+                fetch(`/api/admin/users/${userId}/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({is_active: newStatus})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`User đã được ${action}!`);
+                        loadUsers();
+                    } else {
+                        alert('Lỗi: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Lỗi khi cập nhật user: ' + error.message);
+                });
+            }
+        }
+        
+        // Load usage charts
+        function loadUsageCharts() {
+            // Daily chart
+            const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+            new Chart(dailyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Daily Usage',
+                        data: [12, 19, 3, 5, 2, 3, 7],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Monthly chart
+            const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Monthly Usage',
+                        data: [65, 59, 80, 81, 56, 55],
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

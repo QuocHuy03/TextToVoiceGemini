@@ -20,8 +20,13 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-# API_URL="http://sofin.quochuy.io.vn"
-API_URL="http://62.171.131.164:5000"
+# Load API URL from config
+try:
+    with open('config.json', 'r') as f:
+        config = json.load(f)
+        API_URL = config.get('api_url', 'http://localhost:5000')
+except:
+    API_URL = "http://localhost:5000"
 
 class ProxyCheckThread(QThread):
     result_ready = pyqtSignal(list)
@@ -68,16 +73,15 @@ class VoiceConvertThread(QThread):
         try:
             device_id, _, _ = get_device_id()
             payload = {
-                "key": self.user_key,
+                "api_key": self.user_key,
                 "text": self.text,
-                "device_id": device_id,
-                "voice_code": self.voice_name
+                "voice_name": self.voice_name
             }
 
             print(f"🔄 Gửi request tạo voice với key {self.user_key[:8]}... voice: {self.voice_name}")
             self.progress_updated.emit(self.row, 25)
             
-            response = requests.post(f"{API_URL}/api/voice/create", data=payload, timeout=30)
+            response = requests.post(f"{API_URL}/api/voice/create", json=payload, timeout=30)
 
             try:
                 res = response.json()
@@ -85,22 +89,48 @@ class VoiceConvertThread(QThread):
                 res = {}
 
             if not response.ok or not res.get("success", False):
-                error_msg = res.get("message", f"Lỗi HTTP: {response.status_code}")
+                error_msg = res.get("error") or res.get("message") or f"Lỗi HTTP: {response.status_code}"
                 print(f"❌ Voice tạo thất bại: {error_msg}")
                 self.result_ready.emit(self.row, False, "", "", "", "", error_msg, 0.0)
                 return
 
-            if res.get("file_url", "").endswith(".mp3"):
-                file_url = res.get("file_url")
+            if res.get("download_url", "").endswith(".mp3"):
+                file_url = res.get("download_url")
+                # Convert relative URL to absolute URL
+                if file_url.startswith('/'):
+                    file_url = f"{API_URL}{file_url}"
+                
                 file_name = f"{self.stt}_{self.clean_filename(self.text)}"
                 output_dir = self.save_folder
                 os.makedirs(output_dir, exist_ok=True)
                 save_path = os.path.join(output_dir, self.file_name)
                 
                 self.progress_updated.emit(self.row, 50)
+                print(f"[🔧 DEBUG] Downloading from: {file_url}")
                 print(f"[🔧 DEBUG] Saving file to: {save_path}")
                 
-                r = requests.get(file_url, timeout=15)
+                # Download with retry logic
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        print(f"[🔄 ATTEMPT] Download attempt {attempt + 1}/{max_retries}")
+                        r = requests.get(file_url, timeout=60)  # Increased timeout to 60 seconds
+                        
+                        if r.status_code == 200:
+                            break
+                        else:
+                            print(f"[❌ HTTP ERROR] Status: {r.status_code}")
+                            if attempt == max_retries - 1:
+                                raise Exception(f"HTTP {r.status_code}")
+                    except requests.exceptions.Timeout:
+                        print(f"[⏰ TIMEOUT] Attempt {attempt + 1} timed out")
+                        if attempt == max_retries - 1:
+                            raise Exception("Download timeout after 3 attempts")
+                    except Exception as e:
+                        print(f"[❌ ERROR] Attempt {attempt + 1} failed: {e}")
+                        if attempt == max_retries - 1:
+                            raise Exception(f"Download failed: {str(e)}")
+                
                 if r.status_code == 200:
                     if os.path.exists(save_path):
                         try:
@@ -1137,7 +1167,7 @@ if __name__ == "__main__":
         sys.exit(0)  # Dừng nếu có update (ví dụ: đã mở link tải rồi)
 
     # ✅ Gọi API auth
-    API_URL_AUTH = f"{API_URL}/api/voice/auth?sheet=voices"
+    API_URL_AUTH = f"{API_URL}/api/voice/auth"
     login = KeyLoginDialog(API_URL_AUTH)
 
     # ✅ Nếu xác thực thành công

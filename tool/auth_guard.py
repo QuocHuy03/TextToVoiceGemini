@@ -35,7 +35,8 @@ def check_key_online(key: str, api_url: str):
     device_id_hash, mac, serial = get_device_id()
 
     try:
-        response = requests.post(api_url, data={
+        # Always send device_id to avoid double requests
+        response = requests.get(api_url, params={
             "key": key,
             "device_id": device_id_hash
         }, timeout=10)
@@ -43,7 +44,8 @@ def check_key_online(key: str, api_url: str):
         # Nếu lỗi status HTTP (500, 404,...)
         try:
             res = response.json()
-            message = res.get("message", f"❌ HTTP {response.status_code}")
+            # Ưu tiên hiển thị error từ server, sau đó mới đến message
+            message = res.get("error") or res.get("message") or f"❌ HTTP {response.status_code}"
         except Exception:
             message = f"❌ HTTP {response.status_code} (no JSON)"
             res = {}
@@ -59,7 +61,8 @@ def check_key_online(key: str, api_url: str):
                 "key": key,
                 "device_id": f"{mac} | {serial}",
                 "expires": res.get("expires", ""),
-                "remaining": res.get("remaining", "")
+                "remaining": f"Daily: {res.get('remaining_daily', 0)}/{res.get('daily_limit', 0)}",
+                "user": res.get("user", "")
             }
             return True, res.get("message", "✅ Thành công"), info
         else:

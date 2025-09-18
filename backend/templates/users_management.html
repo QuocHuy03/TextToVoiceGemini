@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice API - Users Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .main-content {
+            padding: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card.users { border-left-color: #28a745; }
+        .stat-card.keys { border-left-color: #007bff; }
+        .stat-card.today { border-left-color: #ffc107; }
+        .stat-card.month { border-left-color: #dc3545; }
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.7;
+        }
+        .table-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar">
+                <div class="p-3">
+                    <h4 class="text-center mb-4">
+                        <i class="fas fa-microphone-alt me-2"></i>
+                        Voice API
+                    </h4>
+                    
+                    <nav class="nav flex-column">
+                        <a class="nav-link" href="/admin/dashboard" data-section="dashboard">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <a class="nav-link active" href="/admin/users" data-section="users">
+                            <i class="fas fa-users me-2"></i>Users
+                        </a>
+                        <a class="nav-link" href="/admin/keys">
+                            <i class="fas fa-cogs me-2"></i>Key Management
+                        </a>
+                        <a class="nav-link" href="/admin/gemini-keys" data-section="gemini-keys">
+                            <i class="fas fa-robot me-2"></i>Gemini Keys
+                        </a>
+                        <a class="nav-link" href="/admin/usage" data-section="usage">
+                            <i class="fas fa-chart-bar me-2"></i>Usage Stats
+                        </a>
+                        <a class="nav-link" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <!-- Stats Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="stat-card users">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="totalUsers">0</h3>
+                                    <p class="mb-0 text-muted">Tổng Users</p>
+                                </div>
+                                <div class="stat-icon text-success">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card today">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="activeUsers">0</h3>
+                                    <p class="mb-0 text-muted">Users Active</p>
+                                </div>
+                                <div class="stat-icon text-warning">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card keys">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="adminUsers">0</h3>
+                                    <p class="mb-0 text-muted">Admin Users</p>
+                                </div>
+                                <div class="stat-icon text-primary">
+                                    <i class="fas fa-user-shield"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card month">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <h3 class="mb-1" id="inactiveUsers">0</h3>
+                                    <p class="mb-0 text-muted">Users Inactive</p>
+                                </div>
+                                <div class="stat-icon text-danger">
+                                    <i class="fas fa-user-times"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Table Card -->
+                <div class="table-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Quản lý Users
+                        </h4>
+                        <div>
+                            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                                <i class="fas fa-plus me-2"></i>Thêm User
+                            </button>
+                            <button class="btn btn-success me-2" onclick="loadUsers()">
+                                <i class="fas fa-refresh me-2"></i>Load Users
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteSelectedUsers()">
+                                <i class="fas fa-trash me-2"></i>Xóa User
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="selectAllUsers" onchange="toggleSelectAllUsers()">
+                                    </th>
+                                    <th>STT</th>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr id="loadingUsersRow">
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <div class="mt-2">Đang tải dữ liệu...</div>
+                                        <div class="mt-2">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="loadUsers()">
+                                                <i class="fas fa-refresh me-1"></i>Thử lại
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <nav aria-label="Users pagination" class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-muted">
+                                Hiển thị <span id="showingFromUsers">0</span> - <span id="showingToUsers">0</span> 
+                                trong tổng số <span id="totalUsers">0</span> users
+                            </div>
+                            <ul class="pagination pagination-sm mb-0" id="usersPagination">
+                                <!-- Pagination buttons will be generated here -->
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus me-2"></i>Thêm User
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUserForm">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" placeholder="VD: user123" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" placeholder="Nhập password" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select class="form-select" id="role" required>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="activateUser" checked>
+                                <label class="form-check-label" for="activateUser">
+                                    Kích hoạt user
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="addNewUser()">Thêm User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        console.log('Script starting...');
+        
+        // Load users data
+        let isLoadingUsers = false;
+        let allUsers = [];
+        let currentUsersPage = 1;
+        const usersItemsPerPage = 30;
+        
+        function loadUsers() {
+            if (isLoadingUsers) {
+                console.log('Already loading users, skipping...');
+                return;
+            }
+            
+            isLoadingUsers = true;
+            console.log('Loading users...');
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            fetch('/api/admin/users', {
+                signal: controller.signal
+            })
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    console.log('Response status:', response.status);
+                    
+                    if (response.status === 403) {
+                        console.log('Admin session required, redirecting to login...');
+                        alert('Vui lòng đăng nhập admin trước!');
+                        window.location.href = '/admin/login';
+                        return;
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return;
+                    console.log('API response:', data);
+                    
+                    if (data.success) {
+                        const users = data.users.map(user => ({
+                            id: user.id,
+                            username: user.username,
+                            role: user.role,
+                            isActive: user.is_active,
+                            createdAt: user.created_at
+                        }));
+                        
+                        console.log('Processed users:', users);
+                        allUsers = users; // Store all users
+                        renderUsersTable();
+                        updateUsersStats(allUsers);
+                        renderUsersPagination();
+                    } else {
+                        console.error('Failed to load users:', data.error);
+                        showUsersError('Không thể tải dữ liệu: ' + (data.error || 'Lỗi không xác định'));
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error('Error loading users:', error);
+                    
+                    if (error.name === 'AbortError') {
+                        showUsersError('Timeout! Vui lòng kiểm tra kết nối mạng.');
+                    } else {
+                        showUsersError('Lỗi kết nối: ' + error.message);
+                    }
+                })
+                .finally(() => {
+                    isLoadingUsers = false;
+                });
+        }
+        
+        function showUsersError(message) {
+            const tbody = document.getElementById('usersTableBody');
+            const loadingRow = document.getElementById('loadingUsersRow');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <div>${message}</div>
+                        <button class="btn btn-primary mt-2" onclick="loadUsers()">
+                            <i class="fas fa-refresh me-2"></i>Thử lại
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renderUsersTable() {
+            console.log('Rendering users table with', allUsers.length, 'total users');
+            const tbody = document.getElementById('usersTableBody');
+            console.log('Found tbody element:', tbody);
+            
+            const loadingRow = document.getElementById('loadingUsersRow');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            
+            tbody.innerHTML = '';
+
+            if (allUsers.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <div>Không có users nào</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Calculate pagination
+            const startIndex = (currentUsersPage - 1) * usersItemsPerPage;
+            const endIndex = Math.min(startIndex + usersItemsPerPage, allUsers.length);
+            const pageUsers = allUsers.slice(startIndex, endIndex);
+
+            pageUsers.forEach((user, index) => {
+                console.log('Creating row for user:', user);
+                const row = createUserRow(user, startIndex + index);
+                tbody.appendChild(row);
+            });
+            
+            console.log('Finished rendering users table');
+        }
+
+        function renderUsersPagination() {
+            const totalPages = Math.ceil(allUsers.length / usersItemsPerPage);
+            const paginationContainer = document.getElementById('usersPagination');
+            const showingFrom = document.getElementById('showingFromUsers');
+            const showingTo = document.getElementById('showingToUsers');
+            const totalUsers = document.getElementById('totalUsers');
+
+            // Update showing info
+            const startIndex = (currentUsersPage - 1) * usersItemsPerPage;
+            const endIndex = Math.min(startIndex + usersItemsPerPage, allUsers.length);
+            
+            showingFrom.textContent = allUsers.length > 0 ? startIndex + 1 : 0;
+            showingTo.textContent = endIndex;
+            totalUsers.textContent = allUsers.length;
+
+            // Clear existing pagination
+            paginationContainer.innerHTML = '';
+
+            if (totalPages <= 1) {
+                return; // No pagination needed
+            }
+
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentUsersPage === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${currentUsersPage - 1})">Trước</a>`;
+            paginationContainer.appendChild(prevLi);
+
+            // Page numbers
+            const startPage = Math.max(1, currentUsersPage - 2);
+            const endPage = Math.min(totalPages, currentUsersPage + 2);
+
+            if (startPage > 1) {
+                const firstLi = document.createElement('li');
+                firstLi.className = 'page-item';
+                firstLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(1)">1</a>`;
+                paginationContainer.appendChild(firstLi);
+
+                if (startPage > 2) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                    paginationContainer.appendChild(ellipsisLi);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentUsersPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${i})">${i}</a>`;
+                paginationContainer.appendChild(li);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                    paginationContainer.appendChild(ellipsisLi);
+                }
+
+                const lastLi = document.createElement('li');
+                lastLi.className = 'page-item';
+                lastLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${totalPages})">${totalPages}</a>`;
+                paginationContainer.appendChild(lastLi);
+            }
+
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentUsersPage === totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${currentUsersPage + 1})">Sau</a>`;
+            paginationContainer.appendChild(nextLi);
+        }
+
+        function changeUsersPage(page) {
+            const totalPages = Math.ceil(allUsers.length / usersItemsPerPage);
+            if (page < 1 || page > totalPages) return;
+            
+            currentUsersPage = page;
+            renderUsersTable();
+            renderUsersPagination();
+        }
+
+        function createUserRow(user, index) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="user-checkbox" value="${user.id}">
+                </td>
+                <td><strong>${index + 1}</strong></td>
+                <td><strong>${user.username}</strong></td>
+                <td>
+                    <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-info'}">
+                        <i class="fas fa-${user.role === 'admin' ? 'user-shield' : 'user'} me-1"></i>${user.role.toUpperCase()}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${user.isActive ? 'bg-success' : 'bg-danger'}">
+                        <i class="fas fa-check-circle me-1"></i>${user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td>${formatDate(user.createdAt)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-warning me-1" onclick="toggleUser(${user.id}, ${user.isActive})" title="Toggle Status">
+                        <i class="fas fa-power-off"></i>
+                    </button>
+                    ${user.role !== 'admin' ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${user.id})" title="Xóa">
+                        <i class="fas fa-trash"></i>
+                    </button>` : ''}
+                </td>
+            `;
+            return row;
+        }
+
+        function updateUsersStats(users) {
+            const totalUsers = users.length;
+            const activeUsers = users.filter(user => user.isActive).length;
+            const adminUsers = users.filter(user => user.role === 'admin').length;
+            const inactiveUsers = users.filter(user => !user.isActive).length;
+            
+            document.getElementById('totalUsers').textContent = totalUsers;
+            document.getElementById('activeUsers').textContent = activeUsers;
+            document.getElementById('adminUsers').textContent = adminUsers;
+            document.getElementById('inactiveUsers').textContent = inactiveUsers;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function toggleSelectAllUsers() {
+            const selectAll = document.getElementById('selectAllUsers');
+            const checkboxes = document.querySelectorAll('#usersTableBody .user-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        function addNewUser() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const isActive = document.getElementById('activateUser').checked;
+
+            if (!username || !password) {
+                alert('Vui lòng nhập đầy đủ thông tin!');
+                return;
+            }
+
+            fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    role: role,
+                    is_active: isActive
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Thêm user thành công!');
+                    document.getElementById('addUserModal').querySelector('.btn-close').click();
+                    document.getElementById('addUserForm').reset();
+                    loadUsers();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể thêm user'));
+                }
+            })
+            .catch(error => {
+                console.error('Error adding user:', error);
+                alert('Lỗi kết nối!');
+            });
+        }
+
+        function toggleUser(userId, currentStatus) {
+            fetch(`/api/admin/users/${userId}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    is_active: !currentStatus
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Cập nhật trạng thái user thành công!');
+                    loadUsers();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể cập nhật user'));
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling user:', error);
+                alert('Lỗi kết nối!');
+            });
+        }
+
+        function deleteUser(userId) {
+            if (!confirm('Bạn có chắc chắn muốn xóa user này?')) {
+                return;
+            }
+
+            fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Xóa user thành công!');
+                    loadUsers();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể xóa user'));
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting user:', error);
+                alert('Lỗi kết nối!');
+            });
+        }
+
+        function deleteSelectedUsers() {
+            const checkboxes = document.querySelectorAll('#usersTableBody .user-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Vui lòng chọn ít nhất một user để xóa!');
+                return;
+            }
+
+            if (!confirm(`Bạn có chắc chắn muốn xóa ${checkboxes.length} user(s)?`)) {
+                return;
+            }
+
+            const deletePromises = Array.from(checkboxes).map(checkbox => {
+                const userId = checkbox.value;
+                return fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE'
+                });
+            });
+
+            Promise.all(deletePromises)
+                .then(responses => Promise.all(responses.map(r => r.json())))
+                .then(results => {
+                    const successCount = results.filter(r => r.success).length;
+                    alert(`${successCount} user(s) đã được xóa!`);
+                    loadUsers();
+                })
+                .catch(error => {
+                    console.error('Error deleting users:', error);
+                    alert('Lỗi khi xóa users!');
+                });
+        }
+
+        // Auto-load users when page loads
+        console.log('Setting up auto-load for users...');
+        
+        function autoLoadUsers() {
+            console.log('Auto-loading users...');
+            loadUsers();
+        }
+        
+        if (document.readyState === 'loading') {
+            console.log('Document still loading, waiting for DOMContentLoaded...');
+            document.addEventListener('DOMContentLoaded', autoLoadUsers);
+        } else {
+            console.log('Document already ready, loading users immediately...');
+            autoLoadUsers();
+        }
+
+        // Set active navigation based on current page
+        function setActiveNavigation() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+            
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                const href = link.getAttribute('href');
+                
+                if (href === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Set active navigation when page loads
+        setActiveNavigation();
+    </script>
+</body>
+</html>
