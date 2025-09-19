@@ -527,8 +527,8 @@
                         
                         <div class="mb-3">
                             <label for="editDeviceId" class="form-label">Device ID</label>
-                            <input type="text" class="form-control" id="editDeviceId" value="Chưa bind" readonly style="background-color: #f8f9fa;">
-                            <div class="form-text">Device ID sẽ được cập nhật khi bind</div>
+                            <input type="text" class="form-control" id="editDeviceId" placeholder="Nhập Device ID để bind">
+                            <div class="form-text">Device ID để bind với máy cụ thể</div>
                         </div>
                         
                         <div class="mb-3">
@@ -994,7 +994,7 @@
                             // Populate edit form
                             document.getElementById('editKeyId').value = keyId;
                             document.getElementById('editKeyValue').value = key.api_key;
-                            document.getElementById('editDeviceId').value = 'Chưa bind';
+                            document.getElementById('editDeviceId').value = key.device_id || '';
                             document.getElementById('editDailyLimit').value = key.daily_limit;
                             document.getElementById('editExpirationDate').value = expirationDate;
                             document.getElementById('editActivateKey').checked = key.is_active;
@@ -1025,6 +1025,7 @@
             const dailyLimit = parseInt(document.getElementById('editDailyLimit').value);
             const expirationDate = document.getElementById('editExpirationDate').value;
             const activateKey = document.getElementById('editActivateKey').checked;
+            const deviceId = document.getElementById('editDeviceId').value.trim();
             
             if (!dailyLimit) {
                 alert('Vui lòng điền đầy đủ thông tin!');
@@ -1050,7 +1051,8 @@
                     key_name: 'Updated Key', // Default name
                     daily_limit: dailyLimit,
                     monthly_limit: dailyLimit * 30,
-                    expires_days: expiresDays
+                    expires_days: expiresDays,
+                    device_id: deviceId || null
                 })
             })
             .then(response => response.json())

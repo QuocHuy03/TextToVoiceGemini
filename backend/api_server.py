@@ -8,19 +8,19 @@ import requests
 import ffmpeg
 import sqlite3
 from mutagen.mp3 import MP3
-from requests.exceptions import SSLError, Timeout, ProxyError, ConnectionError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from functools import lru_cache
 import jwt
 from datetime import datetime, timedelta
-import json
 from database import DatabaseManager
-import uuid
 import schedule
 import threading
 from collections import defaultdict
 import time
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VOICE_OUTPUT_DIR = os.path.join(BASE_DIR, "voices")
 
 # Rate limiting: Track active requests per API key
 active_requests = defaultdict(int)
@@ -543,6 +543,18 @@ def download_voice(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/voice/play/<filename>')
+def play_voice(filename):
+    """Play voice sample file"""
+    try:
+        file_path = os.path.join(VOICE_OUTPUT_DIR, filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, mimetype='audio/mpeg')
+        else:
+            return jsonify({'error': 'Voice file not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/stats', methods=['GET'])
 @require_auth
 def get_user_stats():
@@ -645,7 +657,7 @@ def admin_add_gemini_key():
 # Additional endpoints for tool compatibility
 @app.route('/api/voice/list', methods=['GET'])
 def list_voices():
-    """List available voices for TTS"""
+    """Get voice list with sample URLs"""
     voices = [
         {"name": "Voice 1 - Alpha", "code": "achernar"},
         {"name": "Voice 2 - Beta", "code": "achird"},
@@ -679,10 +691,21 @@ def list_voices():
         {"name": "Voice 30 - Zeta Prime", "code": "zubenelgenubi"},
     ]
 
+    # Get base URL from request
+    base_url = request.url_root.rstrip('/')
+    
+    for voice in voices:
+        filename = f"{voice['code']}.mp3"
+        file_path = os.path.join(VOICE_OUTPUT_DIR, filename)
+
+        if os.path.exists(file_path):
+            voice["sample_url"] = f"{base_url}/api/voice/play/{filename}"
+        else:
+            voice["sample_url"] = None
+
     return jsonify({
         'success': True,
-        'voices': voices,
-        'message': f'Found {len(voices)} available voices'
+        'voices': voices
     })
 
 @app.route('/api/voice/auth', methods=['GET'])
@@ -1203,6 +1226,7 @@ def admin_edit_key(key_id):
     daily_limit = data.get('daily_limit')
     monthly_limit = data.get('monthly_limit')
     expires_days = data.get('expires_days')
+    device_id = data.get('device_id')
     
     if not all([key_name, daily_limit is not None, monthly_limit is not None]):
         return jsonify({'success': False, 'error': 'Missing required fields'}), 400
@@ -1216,6 +1240,14 @@ def admin_edit_key(key_id):
         conn.close()
         return jsonify({'success': False, 'error': 'API key not found'}), 404
     
+    # Check if device_id is already bound to a different key
+    if device_id:
+        cursor.execute('SELECT api_key FROM api_keys WHERE device_id = ? AND id != ?', (device_id, key_id))
+        existing_key = cursor.fetchone()
+        if existing_key:
+            conn.close()
+            return jsonify({'success': False, 'error': f'Device ID này đã được bind với key khác: {existing_key[0][:8]}...{existing_key[0][-8:]}'}), 400
+    
     # Calculate expires_at
     expires_at = None
     if expires_days and expires_days > 0:
@@ -1224,9 +1256,9 @@ def admin_edit_key(key_id):
     # Update key
     cursor.execute('''
         UPDATE api_keys 
-        SET key_name = ?, daily_limit = ?, monthly_limit = ?, expires_at = ?
+        SET key_name = ?, daily_limit = ?, monthly_limit = ?, expires_at = ?, device_id = ?
         WHERE id = ?
-    ''', (key_name, daily_limit, monthly_limit, expires_at, key_id))
+    ''', (key_name, daily_limit, monthly_limit, expires_at, device_id, key_id))
     
     if cursor.rowcount > 0:
         conn.commit()

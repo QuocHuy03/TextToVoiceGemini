@@ -690,14 +690,30 @@ class VoiceToolUI(QWidget):
         self.selected_voice_code = voice_code
 
     def play_fixed_audio(self):
+        """Play preview voice from server"""
         voice_code = self.selected_voice_code
-        voice_info = next((v for v in self.voice_data if v["code"] == voice_code), None)
-
-        if not voice_info or not voice_info.get("sample_url"):
-            QMessageBox.warning(self, "Voice Error", "❌ Không tìm thấy sample_url.")
+        
+        if not voice_code:
+            QMessageBox.warning(self, "Voice Error", "❌ Vui lòng chọn giọng nói.")
             return
-
-        sample_url = voice_info["sample_url"]
+        
+        # Find the selected voice data to get sample_url
+        selected_voice = None
+        for voice in self.voice_data:
+            if voice["code"] == voice_code:
+                selected_voice = voice
+                break
+        
+        if not selected_voice:
+            QMessageBox.warning(self, "Voice Error", f"❌ Không tìm thấy thông tin voice: {voice_code}")
+            return
+        
+        sample_url = selected_voice.get("sample_url")
+        if not sample_url:
+            QMessageBox.warning(self, "Voice Error", f"❌ Voice {voice_code} không có sample audio")
+            return
+        
+        print(f"🎧 Playing voice from server: {sample_url}")
         self.play_audio(sample_url, is_url=True)
 
     def handle_audio_state_changed(self, state):
