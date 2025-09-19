@@ -642,7 +642,7 @@
                             isActive: key.is_active,
                             username: key.username,
                             keyName: key.key_name,
-                            lastLogin: key.last_login ? formatVietnamTime(key.last_login) : 'Chưa đăng nhập'
+                            lastLogin: key.last_login ? formatVietnamDateTime(key.last_login) : 'Chưa đăng nhập'
                         }));
                         
                         console.log('Processed keys:', keys);
@@ -936,6 +936,22 @@
             return date.toLocaleDateString('vi-VN') + ' 00:00';
         }
 
+        function formatVietnamDateTime(dateString) {
+            if (!dateString) return 'Chưa có';
+            const date = new Date(dateString);
+            // Convert to Vietnam timezone (UTC+7)
+            const vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+            return vietnamTime.toLocaleString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
         function formatVietnamTime(dateString) {
             const date = new Date(dateString);
             // Convert to Vietnam timezone (UTC+7)
@@ -976,7 +992,7 @@
                             
                             // Populate additional info
                             document.getElementById('editCurrentUsage').textContent = '0'; // TODO: Get actual usage
-                            document.getElementById('editCreatedAt').textContent = new Date(key.created_at).toLocaleDateString('vi-VN');
+                            document.getElementById('editCreatedAt').textContent = formatVietnamDateTime(key.created_at);
                             
                             // Show edit modal
                             const editModal = new bootstrap.Modal(document.getElementById('editKeyModal'));

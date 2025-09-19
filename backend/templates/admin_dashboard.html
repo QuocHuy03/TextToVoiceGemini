@@ -378,6 +378,23 @@
             });
         });
         
+        // Format Vietnam timezone
+        function formatVietnamTime(dateString) {
+            if (!dateString) return 'Chưa có';
+            const date = new Date(dateString);
+            // Convert to Vietnam timezone (UTC+7)
+            const vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+            return vietnamTime.toLocaleString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
         // Load users
         function loadUsers() {
             fetch('/api/admin/users')
@@ -395,7 +412,7 @@
                                 <td>${user.email}</td>
                                 <td><span class="badge bg-${user.role === 'admin' ? 'danger' : 'primary'}">${user.role}</span></td>
                                 <td><span class="badge bg-${user.is_active ? 'success' : 'secondary'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
-                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                <td>${formatVietnamTime(user.created_at)}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary me-1" onclick="toggleUser(${user.id}, ${user.is_active})">
                                         ${user.is_active ? 'Deactivate' : 'Activate'}
@@ -426,8 +443,8 @@
                                 <td><code>${key.api_key}</code></td>
                                 <td><span class="badge bg-${key.is_active ? 'success' : 'secondary'}">${key.is_active ? 'Active' : 'Inactive'}</span></td>
                                 <td>${key.usage_count}</td>
-                                <td>${key.last_used ? new Date(key.last_used).toLocaleString() : 'Never'}</td>
-                                <td>${new Date(key.created_at).toLocaleDateString()}</td>
+                                <td>${key.last_used ? formatVietnamTime(key.last_used) : 'Never'}</td>
+                                <td>${formatVietnamTime(key.created_at)}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-danger" onclick="deleteGeminiKey(${key.id})">
                                         <i class="fas fa-trash"></i>
