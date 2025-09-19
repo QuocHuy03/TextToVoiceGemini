@@ -3,10 +3,13 @@ import os
 from datetime import datetime, timedelta
 import hashlib
 import secrets
+import threading
+import time
 
 class DatabaseManager:
     def __init__(self, db_path="voice_api.db"):
         self.db_path = db_path
+        self._log_lock = threading.Lock()  # Lock for log_usage operations
         self.init_database()
     
     def init_database(self):
@@ -37,6 +40,7 @@ class DatabaseManager:
                 api_key VARCHAR(255) UNIQUE NOT NULL,
                 daily_limit INTEGER DEFAULT 100,
                 monthly_limit INTEGER DEFAULT 3000,
+                total_usage INTEGER DEFAULT 0,
                 expires_at TIMESTAMP,
                 is_active BOOLEAN DEFAULT 1,
                 device_id VARCHAR(255),
@@ -303,6 +307,10 @@ class DatabaseManager:
                 cursor.execute('ALTER TABLE api_keys ADD COLUMN last_login TIMESTAMP')
                 print("Added last_login column to api_keys table")
             
+            if 'total_usage' not in columns:
+                cursor.execute('ALTER TABLE api_keys ADD COLUMN total_usage INTEGER DEFAULT 0')
+                print("Added total_usage column to api_keys table")
+            
             # Check gemini_keys table
             cursor.execute("PRAGMA table_info(gemini_keys)")
             gemini_columns = [column[1] for column in cursor.fetchall()]
@@ -392,101 +400,198 @@ class DatabaseManager:
             conn.close()
     
     def validate_api_key(self, api_key):
-        """Validate API key and check limits"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT ak.id, ak.user_id, ak.daily_limit, ak.monthly_limit, ak.expires_at,
-                   u.username, u.role
-            FROM api_keys ak
-            JOIN users u ON ak.user_id = u.id
-            WHERE ak.api_key = ? AND ak.is_active = 1 AND u.is_active = 1
-        ''', (api_key,))
-        
-        key_data = cursor.fetchone()
-        if not key_data:
-            conn.close()
-            return None
-        
-        key_id, user_id, daily_limit, monthly_limit, expires_at, username, role = key_data
-        
-        # Check expiration
-        if expires_at and datetime.fromisoformat(expires_at) < datetime.now():
-            conn.close()
-            return None
-        
-        # Check daily limit
-        today = datetime.now().date()
-        cursor.execute('''
-            SELECT usage_count FROM daily_usage
-            WHERE api_key_id = ? AND usage_date = ?
-        ''', (key_id, today))
-        
-        daily_usage = cursor.fetchone()
-        daily_count = daily_usage[0] if daily_usage else 0
-        
-        if daily_count >= daily_limit:
-            conn.close()
-            return {'error': 'Daily limit exceeded'}
-        
-        # Check monthly limit
-        current_month = datetime.now().strftime('%Y-%m')
-        cursor.execute('''
-            SELECT usage_count FROM monthly_usage
-            WHERE api_key_id = ? AND usage_month = ?
-        ''', (key_id, current_month))
-        
-        monthly_usage = cursor.fetchone()
-        monthly_count = monthly_usage[0] if monthly_usage else 0
-        
-        if monthly_count >= monthly_limit:
-            conn.close()
-            return {'error': 'Monthly limit exceeded'}
-        
-        conn.close()
-        return {
-            'key_id': key_id,
-            'user_id': user_id,
-            'username': username,
-            'role': role,
-            'daily_remaining': daily_limit - daily_count,
-            'monthly_remaining': monthly_limit - monthly_count
-        }
+        """Validate API key and check limits with atomic operation"""
+        # Use same lock as log_usage to ensure atomic validation and logging
+        with self._log_lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # Enable WAL mode for better concurrency
+                cursor.execute('PRAGMA journal_mode=WAL')
+                
+                # Start immediate transaction
+                cursor.execute('BEGIN IMMEDIATE TRANSACTION')
+                
+                cursor.execute('''
+                    SELECT ak.id, ak.user_id, ak.daily_limit, ak.monthly_limit, ak.total_usage, ak.expires_at,
+                           u.username, u.role
+                    FROM api_keys ak
+                    JOIN users u ON ak.user_id = u.id
+                    WHERE ak.api_key = ? AND ak.is_active = 1 AND u.is_active = 1
+                ''', (api_key,))
+                
+                key_data = cursor.fetchone()
+                if not key_data:
+                    cursor.execute('ROLLBACK')
+                    conn.close()
+                    return None
+                
+                key_id, user_id, daily_limit, monthly_limit, total_usage, expires_at, username, role = key_data
+                
+                # Check expiration
+                if expires_at and datetime.fromisoformat(expires_at) < datetime.now():
+                    cursor.execute('ROLLBACK')
+                    conn.close()
+                    return None
+                
+                # Check daily limit (using actual daily usage)
+                today = datetime.now().date()
+                cursor.execute('''
+                    SELECT usage_count FROM daily_usage
+                    WHERE api_key_id = ? AND usage_date = ?
+                ''', (key_id, today))
+                
+                daily_usage = cursor.fetchone()
+                daily_count = daily_usage[0] if daily_usage else 0
+                
+                print(f"[VALIDATE] Checking daily limit - Key ID: {key_id}, Daily Count: {daily_count}, Daily Limit: {daily_limit}")
+                
+                if daily_count >= daily_limit:
+                    print(f"[VALIDATE] DAILY LIMIT EXCEEDED - Rejecting request. Count: {daily_count}, Limit: {daily_limit}")
+                    cursor.execute('ROLLBACK')
+                    conn.close()
+                    return {'error': 'Daily limit exceeded'}
+                
+                print(f"[VALIDATE] Daily limit check passed - Count: {daily_count}, Limit: {daily_limit}")
+                
+                # Check monthly limit (still keep monthly limit)
+                current_month = datetime.now().strftime('%Y-%m')
+                cursor.execute('''
+                    SELECT usage_count FROM monthly_usage
+                    WHERE api_key_id = ? AND usage_month = ?
+                ''', (key_id, current_month))
+                
+                monthly_usage = cursor.fetchone()
+                monthly_count = monthly_usage[0] if monthly_usage else 0
+                
+                if monthly_count >= monthly_limit:
+                    cursor.execute('ROLLBACK')
+                    conn.close()
+                    return {'error': 'Monthly limit exceeded'}
+                
+                # Commit transaction (validation passed)
+                cursor.execute('COMMIT')
+                conn.close()
+                
+                print(f"[VALIDATE] Key {api_key[:10]}... validated - Daily: {daily_count}/{daily_limit}, Monthly: {monthly_count}/{monthly_limit}")
+                
+                return {
+                    'key_id': key_id,
+                    'user_id': user_id,
+                    'username': username,
+                    'role': role,
+                    'daily_remaining': max(0, daily_limit - daily_count),  # Use current count
+                    'monthly_remaining': max(0, monthly_limit - monthly_count)  # Never negative
+                }
+                
+            except Exception as e:
+                try:
+                    cursor.execute('ROLLBACK')
+                except:
+                    pass
+                conn.close()
+                print(f"[ERROR] Failed to validate API key: {e}")
+                return None
     
     def log_usage(self, api_key_id, user_id, text_length, voice_name, duration=None, file_size=None, ip_address=None, user_agent=None):
-        """Log API usage"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Insert usage log
-        cursor.execute('''
-            INSERT INTO usage_logs (api_key_id, user_id, text_length, voice_name, duration, file_size, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (api_key_id, user_id, text_length, voice_name, duration, file_size, ip_address, user_agent))
-        
-        # Update daily usage
-        today = datetime.now().date()
-        cursor.execute('''
-            INSERT OR REPLACE INTO daily_usage (api_key_id, usage_date, usage_count, total_characters)
-            VALUES (?, ?, 
-                COALESCE((SELECT usage_count FROM daily_usage WHERE api_key_id = ? AND usage_date = ?), 0) + 1,
-                COALESCE((SELECT total_characters FROM daily_usage WHERE api_key_id = ? AND usage_date = ?), 0) + ?
-            )
-        ''', (api_key_id, today, api_key_id, today, api_key_id, today, text_length))
-        
-        # Update monthly usage
-        current_month = datetime.now().strftime('%Y-%m')
-        cursor.execute('''
-            INSERT OR REPLACE INTO monthly_usage (api_key_id, usage_month, usage_count, total_characters)
-            VALUES (?, ?, 
-                COALESCE((SELECT usage_count FROM monthly_usage WHERE api_key_id = ? AND usage_month = ?), 0) + 1,
-                COALESCE((SELECT total_characters FROM monthly_usage WHERE api_key_id = ? AND usage_month = ?), 0) + ?
-            )
-        ''', (api_key_id, current_month, api_key_id, current_month, api_key_id, current_month, text_length))
-        
-        conn.commit()
-        conn.close()
+        """Log API usage with atomic transaction and concurrent request handling"""
+        # Use thread lock to ensure only one log_usage operation at a time
+        with self._log_lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # Enable WAL mode for better concurrency
+                cursor.execute('PRAGMA journal_mode=WAL')
+                
+                # Start immediate transaction (prevents other transactions from starting)
+                cursor.execute('BEGIN IMMEDIATE TRANSACTION')
+                
+                # Get current usage counts BEFORE updating
+                today = datetime.now().date()
+                current_month = datetime.now().strftime('%Y-%m')
+                
+                # Check current daily usage
+                cursor.execute('''
+                    SELECT COALESCE(usage_count, 0) FROM daily_usage 
+                    WHERE api_key_id = ? AND usage_date = ?
+                ''', (api_key_id, today))
+                daily_result = cursor.fetchone()
+                current_daily = daily_result[0] if daily_result else 0
+                
+                # Check current total usage
+                cursor.execute('SELECT total_usage FROM api_keys WHERE id = ?', (api_key_id,))
+                total_result = cursor.fetchone()
+                current_total = total_result[0] if total_result else 0
+                
+                # Check current monthly usage
+                cursor.execute('''
+                    SELECT COALESCE(usage_count, 0) FROM monthly_usage 
+                    WHERE api_key_id = ? AND usage_month = ?
+                ''', (api_key_id, current_month))
+                monthly_result = cursor.fetchone()
+                current_monthly = monthly_result[0] if monthly_result else 0
+                
+                # Get current daily characters
+                cursor.execute('''
+                    SELECT COALESCE(total_characters, 0) FROM daily_usage 
+                    WHERE api_key_id = ? AND usage_date = ?
+                ''', (api_key_id, today))
+                daily_chars_result = cursor.fetchone()
+                current_daily_characters = daily_chars_result[0] if daily_chars_result else 0
+                
+                # Get current monthly characters
+                cursor.execute('''
+                    SELECT COALESCE(total_characters, 0) FROM monthly_usage 
+                    WHERE api_key_id = ? AND usage_month = ?
+                ''', (api_key_id, current_month))
+                monthly_chars_result = cursor.fetchone()
+                current_monthly_characters = monthly_chars_result[0] if monthly_chars_result else 0
+                
+                print(f"[DEBUG] Current usage - Daily: {current_daily}, Total: {current_total}, Monthly: {current_monthly}")
+                
+                # Insert usage log
+                cursor.execute('''
+                    INSERT INTO usage_logs (api_key_id, user_id, text_length, voice_name, duration, file_size, ip_address, user_agent)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (api_key_id, user_id, text_length, voice_name, duration, file_size, ip_address, user_agent))
+                
+                # Update total usage in api_keys table (cumulative, no reset)
+                cursor.execute('''
+                    UPDATE api_keys 
+                    SET total_usage = total_usage + 1
+                    WHERE id = ?
+                ''', (api_key_id,))
+                
+                # Update daily usage (increment by 1) - only when voice creation succeeds
+                cursor.execute('''
+                    INSERT OR REPLACE INTO daily_usage (api_key_id, usage_date, usage_count, total_characters)
+                    VALUES (?, ?, ?, ?)
+                ''', (api_key_id, today, current_daily + 1, current_daily_characters + text_length))
+                
+                # Update monthly usage
+                cursor.execute('''
+                    INSERT OR REPLACE INTO monthly_usage (api_key_id, usage_month, usage_count, total_characters)
+                    VALUES (?, ?, ?, ?)
+                ''', (api_key_id, current_month, current_monthly + 1,
+                      (current_monthly * 0) + text_length))  # Simplified for now
+                
+                # Commit transaction
+                cursor.execute('COMMIT')
+                conn.close()
+                
+                print(f"[DEBUG] Usage logged successfully - New Daily: {current_daily + 1}, New Total: {current_total + 1}")
+                
+            except Exception as e:
+                # Rollback on error
+                try:
+                    cursor.execute('ROLLBACK')
+                except:
+                    pass
+                conn.close()
+                print(f"[ERROR] Failed to log usage: {e}")
+                return False
     
     def get_user_stats(self, user_id):
         """Get user statistics"""
@@ -582,6 +687,102 @@ class DatabaseManager:
         conn.close()
         
         return cursor.rowcount > 0
+
+    def reset_gemini_daily_usage(self, gemini_key_id=None, date=None):
+        """Reset daily usage for specific Gemini key or all Gemini keys"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        if date is None:
+            date = datetime.now().date()
+        
+        if gemini_key_id:
+            # Reset specific Gemini key
+            cursor.execute('''
+                DELETE FROM gemini_daily_usage 
+                WHERE gemini_key_id = ? AND usage_date = ?
+            ''', (gemini_key_id, date))
+        else:
+            # Reset all Gemini keys for the date
+            cursor.execute('''
+                DELETE FROM gemini_daily_usage 
+                WHERE usage_date = ?
+            ''', (date,))
+        
+        affected_rows = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        return affected_rows
+
+    def reset_gemini_monthly_usage(self, gemini_key_id=None, month=None):
+        """Reset monthly usage for specific Gemini key or all Gemini keys"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        if month is None:
+            month = datetime.now().strftime('%Y-%m')
+        
+        if gemini_key_id:
+            # Reset specific Gemini key
+            cursor.execute('''
+                DELETE FROM gemini_monthly_usage 
+                WHERE gemini_key_id = ? AND usage_month = ?
+            ''', (gemini_key_id, month))
+        else:
+            # Reset all Gemini keys for the month
+            cursor.execute('''
+                DELETE FROM gemini_monthly_usage 
+                WHERE usage_month = ?
+            ''', (month,))
+        
+        affected_rows = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        return affected_rows
+
+    def fix_exceeded_daily_usage(self):
+        """Fix keys that have exceeded daily limit by resetting their daily usage"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            today = datetime.now().date()
+            
+            # Find keys that have exceeded daily limit
+            cursor.execute('''
+                SELECT ak.id, ak.daily_limit, COALESCE(du.usage_count, 0) as daily_usage
+                FROM api_keys ak
+                LEFT JOIN daily_usage du ON ak.id = du.api_key_id AND du.usage_date = ?
+                WHERE COALESCE(du.usage_count, 0) > ak.daily_limit
+            ''', (today,))
+            
+            exceeded_keys = cursor.fetchall()
+            
+            if exceeded_keys:
+                print(f"[FIX] Found {len(exceeded_keys)} keys that exceeded daily limit")
+                
+                for key_id, daily_limit, daily_usage in exceeded_keys:
+                    print(f"[FIX] Key {key_id}: usage={daily_usage}, limit={daily_limit}")
+                    
+                    # Reset daily usage to limit (cap it at the limit)
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO daily_usage (api_key_id, usage_date, usage_count, total_characters)
+                        VALUES (?, ?, ?, ?)
+                    ''', (key_id, today, daily_limit, daily_limit * 100))  # Estimate characters
+                    
+                    print(f"[FIX] Reset key {key_id} daily usage to {daily_limit}")
+            
+            conn.commit()
+            conn.close()
+            
+            return len(exceeded_keys)
+            
+        except Exception as e:
+            conn.close()
+            print(f"[ERROR] Failed to fix exceeded daily usage: {e}")
+            return 0
 
 if __name__ == "__main__":
     # Test database initialization

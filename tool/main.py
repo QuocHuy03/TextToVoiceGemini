@@ -41,7 +41,7 @@ class ProxyCheckThread(QThread):
         live_proxies, _ = check_and_filter_proxies(
             self.file_path,
             proxy_type=self.proxy_type,
-            max_workers=20,
+            max_workers=5,
             output_to_file=True
         )
         self.result_ready.emit(live_proxies)
@@ -81,7 +81,7 @@ class VoiceConvertThread(QThread):
             print(f"🔄 Gửi request tạo voice với key {self.user_key[:8]}... voice: {self.voice_name}")
             self.progress_updated.emit(self.row, 25)
             
-            response = requests.post(f"{API_URL}/api/voice/create", json=payload, timeout=30)
+            response = requests.post(f"{API_URL}/api/voice/create", json=payload)
 
             try:
                 res = response.json()
@@ -239,7 +239,7 @@ class VoiceToolUI(QWidget):
         self.convert_queue = []
         self.pending_rows = []
         self.active_threads = 0
-        self.max_concurrent_threads = 2
+        self.max_concurrent_threads = 5  # Max 5 threads
         self.folder = ""
         self.file_loaded = False
         self.texts = []
@@ -536,7 +536,7 @@ class VoiceToolUI(QWidget):
         progress_layout.addWidget(thread_label)
         
         self.thread_spinbox = QSpinBox()
-        self.thread_spinbox.setRange(1, 10)
+        self.thread_spinbox.setRange(1, 5)  # Min 1, Max 5
         self.thread_spinbox.setValue(self.max_concurrent_threads)
         self.thread_spinbox.valueChanged.connect(self.on_thread_count_changed)
         self.thread_spinbox.setStyleSheet("""
@@ -881,7 +881,7 @@ class VoiceToolUI(QWidget):
     def load_config(self):
         default_config = {
             "proxy_type": "http",
-            "max_concurrent_threads": 2
+            "max_concurrent_threads": 5
         }
 
         if not os.path.exists(self.CONFIG_PATH):

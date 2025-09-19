@@ -293,8 +293,8 @@
                         <div class="stat-card today">
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
-                                    <h3 class="mb-1" id="totalUsage">0</h3>
-                                    <p class="mb-0 text-muted">Usage Hôm nay</p>
+                        <h3 class="mb-1" id="totalUsage">0</h3>
+                        <p class="mb-0 text-muted">Daily Usage</p>
                                 </div>
                                 <div class="stat-icon text-warning">
                                     <i class="fas fa-chart-line"></i>
@@ -361,6 +361,7 @@
                                     <th>Device ID</th>
                                     <th>Daily Limit</th>
                                     <th>Daily Usage</th>
+                                    <th>Total Usage</th>
                                     <th>Remaining</th>
                                     <th>Expires</th>
                                     <th>Last Login</th>
@@ -440,7 +441,7 @@
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-chart-bar me-2"></i>Daily Usage</h5>
+                                    <h5><i class="fas fa-chart-bar me-2"></i>Total Usage</h5>
                                 </div>
                                 <div class="card-body">
                                     <canvas id="dailyChart"></canvas>
@@ -559,10 +560,16 @@
                             <h6 class="text-muted">Thông tin thêm</h6>
                             <div class="row">
                                 <div class="col-6">
-                                    <small class="text-muted">Usage hiện tại:</small>
+                                    <small class="text-muted">Daily Usage:</small>
                                     <div id="editCurrentUsage" class="fw-bold">0</div>
                                 </div>
                                 <div class="col-6">
+                                    <small class="text-muted">Total Usage:</small>
+                                    <div id="editTotalUsage" class="fw-bold">0</div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
                                     <small class="text-muted">Ngày tạo:</small>
                                     <div id="editCreatedAt" class="fw-bold">-</div>
                                 </div>
@@ -635,7 +642,8 @@
                             key: key.api_key,
                             deviceId: key.device_id ? `${key.device_id.substring(0, 5)}***${key.device_id.substring(key.device_id.length - 5)}` : 'Chưa bind',
                             limit: key.daily_limit,
-                            usage: key.daily_usage || 0,
+                            usage: key.daily_usage || 0,  // Daily usage
+                            totalUsage: key.total_usage || 0,  // Total usage
                             remaining: key.remaining_daily || 0,
                             expires: key.expires_at ? formatDate(key.expires_at) : 'Không giới hạn',
                             status: key.is_active ? 'Active' : 'Inactive',
@@ -822,6 +830,7 @@
                 <td>${key.deviceId}</td>
                 <td><span class="badge bg-info">${key.limit}</span></td>
                 <td><span class="badge bg-warning">${key.usage}</span></td>
+                <td><span class="badge bg-secondary">${key.totalUsage}</span></td>
                 <td><span class="badge ${key.remaining > 0 ? 'bg-success' : 'bg-danger'}">${key.remaining}</span></td>
                 <td>${key.expires}</td>
                 <td>${key.lastLogin}</td>
@@ -991,7 +1000,8 @@
                             document.getElementById('editActivateKey').checked = key.is_active;
                             
                             // Populate additional info
-                            document.getElementById('editCurrentUsage').textContent = '0'; // TODO: Get actual usage
+                            document.getElementById('editCurrentUsage').textContent = key.daily_usage || 0;
+                            document.getElementById('editTotalUsage').textContent = key.total_usage || 0;
                             document.getElementById('editCreatedAt').textContent = formatVietnamDateTime(key.created_at);
                             
                             // Show edit modal

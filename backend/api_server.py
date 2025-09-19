@@ -19,6 +19,16 @@ from database import DatabaseManager
 import uuid
 import schedule
 import threading
+from collections import defaultdict
+import time
+
+# Rate limiting: Track active requests per API key
+active_requests = defaultdict(int)
+request_lock = threading.Lock()
+
+# Global rate limiting: Max 5 concurrent requests
+MAX_CONCURRENT_REQUESTS = 5
+global_semaphore = threading.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'
@@ -163,49 +173,6 @@ def log_failed_gemini_key(api_key, error_message):
     except Exception as e:
         print(f"[ERROR] Failed to log failed key attempt: {e}")
 
-def mark_gemini_key_disabled_today(api_key):
-    try:
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
-        
-        # Update the key to be disabled temporarily
-        cursor.execute('''
-            UPDATE gemini_keys 
-            SET is_active = 0
-            WHERE api_key = ?
-        ''', (api_key,))
-        
-        conn.commit()
-        conn.close()
-        
-        print(f"[QUOTA] Marked key {api_key[:20]} as disabled for today")
-        
-    except Exception as e:
-        print(f"[ERROR] Failed to mark key as disabled: {e}")
-
-def reset_quota_exceeded_keys():
-    """Reset quota exceeded keys at midnight (called by scheduler)"""
-    try:
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
-        
-        # Reset keys that were disabled due to quota exceeded yesterday
-        cursor.execute('''
-            UPDATE gemini_keys 
-            SET is_active = 1
-            WHERE is_active = 0
-        ''')
-        
-        affected_rows = cursor.rowcount
-        conn.commit()
-        conn.close()
-        
-        if affected_rows > 0:
-            print(f"[QUOTA] Reset {affected_rows} quota-exceeded keys for new day")
-        
-    except Exception as e:
-        print(f"[ERROR] Failed to reset quota exceeded keys: {e}")
-
 def gemini_tts_request(text, voice_name, api_key_list):
     def task(api_key):
         try:
@@ -230,12 +197,11 @@ def gemini_tts_request(text, voice_name, api_key_list):
             }
 
             session = get_session()
-            response = session.post(url, headers=headers, json=data, timeout=30)
+            response = session.post(url, headers=headers, json=data)
             
             if response.status_code == 429:
-                # Quota exceeded - mark key as temporarily disabled for today
-                print(f"[QUOTA] Key {api_key[:20]} exceeded quota, marking as disabled for today")
-                mark_gemini_key_disabled_today(api_key)
+                # Quota exceeded - just raise exception without disabling key
+                print(f"[QUOTA] Key {api_key[:20]} exceeded quota")
                 raise Exception(f"Quota exceeded for key {api_key[:20]}")
             
             if response.status_code != 200:
@@ -456,15 +422,25 @@ def create_voice():
     if not text or not api_key:
         return jsonify({'success': False, 'error': 'Missing text or api_key'}), 400
     
-    # Validate API key
-    validation = db.validate_api_key(api_key)
-    if validation is None:
-        return jsonify({'success': False, 'error': 'Invalid API key'}), 401
-    
-    if isinstance(validation, dict) and 'error' in validation:
-        return jsonify({'success': False, 'error': validation['error']}), 403
+    # Global rate limiting: Check if we can process this request
+    if not global_semaphore.acquire(blocking=False):
+        print(f"[RATE_LIMIT] Global limit exceeded. Max {MAX_CONCURRENT_REQUESTS} concurrent requests allowed.")
+        return jsonify({'success': False, 'error': 'Server busy. Please try again later.'}), 429
     
     try:
+        # Validate API key
+        validation = db.validate_api_key(api_key)
+        if validation is None:
+            print(f"[VALIDATE] Invalid API key: {api_key[:10]}...")
+            return jsonify({'success': False, 'error': 'Invalid API key'}), 401
+        
+        if isinstance(validation, dict) and 'error' in validation:
+            print(f"[VALIDATE] API key validation failed: {validation['error']}")
+            return jsonify({'success': False, 'error': validation['error']}), 403
+        
+        print(f"[VALIDATE] API key validated successfully - Remaining: {validation.get('daily_remaining', 0)}")
+        print(f"[VALIDATE] PROCEEDING WITH VOICE GENERATION")
+        
         # Get available Gemini keys with IDs
         conn = sqlite3.connect(db.db_path)
         cursor = conn.cursor()
@@ -479,9 +455,11 @@ def create_voice():
         gemini_keys = [row[1] for row in gemini_keys_data]
         
         # Create voice using Gemini TTS
+        print(f"[DEBUG] Starting voice creation for API key {api_key[:10]}...")
         result = gemini_tts_request(text, voice_name, gemini_keys)
         
         if result:
+            print(f"[DEBUG] Voice creation SUCCESS for API key {api_key[:10]}...")
             mp3_file, duration, used_gemini_key = result
             filename = os.path.basename(mp3_file)
             
@@ -512,12 +490,15 @@ def create_voice():
             user_id = validation.get('user_id')
             if key_id and user_id:
                 try:
-                    print(f"[DEBUG] Logging usage for key_id={key_id}, user_id={user_id}, text_length={len(text)}")
+                    # Generate unique request ID to prevent duplicate processing
+                    request_id = f"{key_id}_{user_id}_{int(time.time() * 1000)}_{hash(text[:50])}"
+                    print(f"[DEBUG] Processing request {request_id} for key_id={key_id}, user_id={user_id}, text_length={len(text)}, voice_name={voice_name}")
+                    
                     db.log_usage(key_id, user_id, len(text), voice_name, duration, 
                                 os.path.getsize(mp3_file), request.remote_addr, request.headers.get('User-Agent'))
-                    print(f"[DEBUG] Usage logged successfully")
+                    print(f"[DEBUG] Usage logged successfully for request {request_id}")
                 except Exception as e:
-                    print(f"[ERROR] Failed to log usage: {e}")
+                    print(f"[ERROR] Failed to log usage for key_id={key_id}: {e}")
                     # Don't fail the request if logging fails
             
             # Log usage for Gemini key
@@ -538,10 +519,17 @@ def create_voice():
                 'download_url': f'/api/voice/download/{filename}'
             })
         else:
+            print(f"[DEBUG] Voice creation FAILED for API key {api_key[:10]}...")
             return jsonify({'success': False, 'error': 'Failed to create voice'}), 500
             
     except Exception as e:
+        print(f"[ERROR] Exception in voice creation: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+    finally:
+        # Always release the global semaphore
+        global_semaphore.release()
+        print(f"[RATE_LIMIT] Released semaphore. Available slots: {global_semaphore._value}")
 
 @app.route('/api/voice/download/<filename>')
 def download_voice(filename):
@@ -843,7 +831,7 @@ def admin_list_all_keys():
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT ak.id, ak.key_name, ak.api_key, ak.daily_limit, 
+        SELECT ak.id, ak.key_name, ak.api_key, ak.daily_limit, ak.total_usage,
                ak.expires_at, ak.is_active, ak.created_at, ak.device_id, ak.last_login, u.username
         FROM api_keys ak
         JOIN users u ON ak.user_id = u.id
@@ -851,7 +839,6 @@ def admin_list_all_keys():
     ''')
     
     keys = cursor.fetchall()
-    conn.close()
     
     # Get today's usage for each key
     today = datetime.now().date()
@@ -861,8 +848,9 @@ def admin_list_all_keys():
     result = []
     for key in keys:
         key_id = key[0]
+        total_usage = key[4]  # total_usage from api_keys table
         
-        # Get today's usage count
+        # Get today's actual daily usage
         cursor.execute('''
             SELECT COALESCE(usage_count, 0) FROM daily_usage 
             WHERE api_key_id = ? AND usage_date = ?
@@ -870,24 +858,39 @@ def admin_list_all_keys():
         
         usage_result = cursor.fetchone()
         daily_usage = usage_result[0] if usage_result else 0
-        remaining_daily = key[3] - daily_usage  # daily_limit - daily_usage
+        
+        # Ensure remaining_daily is never negative
+        remaining_daily = max(0, key[3] - daily_usage)  # daily_limit - daily_usage, minimum 0
+        
+        # If daily_usage exceeds daily_limit, show 0 remaining but keep actual usage
+        if daily_usage > key[3]:
+            print(f"[WARNING] Key {key[2][:10]}... exceeded daily limit: usage={daily_usage}, limit={key[3]}")
         
         result.append({
             'id': key[0],
             'key_name': key[1],
             'api_key': key[2],
             'daily_limit': key[3],
-            'daily_usage': daily_usage,
-            'remaining_daily': remaining_daily,
-            'expires_at': key[4],
-            'is_active': key[5],
-            'created_at': key[6],
-            'device_id': key[7] or '',
-            'last_login': key[8] or '',
-            'username': key[9]
+            'daily_usage': daily_usage,  # Shows actual daily usage
+            'total_usage': total_usage,  # Shows cumulative usage
+            'remaining_daily': remaining_daily,  # Never negative
+            'expires_at': key[5],
+            'is_active': key[6],
+            'created_at': key[7],
+            'device_id': key[8] or '',
+            'last_login': key[9] or '',
+            'username': key[10]
         })
     
     conn.close()
+    
+    # Fix any keys that have exceeded daily limit
+    try:
+        fixed_count = db.fix_exceeded_daily_usage()
+        if fixed_count > 0:
+            print(f"[FIX] Fixed {fixed_count} keys that exceeded daily limit")
+    except Exception as e:
+        print(f"[ERROR] Failed to fix exceeded daily usage: {e}")
     
     return jsonify({'success': True, 'keys': result})
 
@@ -1233,6 +1236,18 @@ def admin_edit_key(key_id):
         conn.close()
         return jsonify({'success': False, 'error': 'API key not found'}), 404
 
+def reset_gemini_daily_usage():
+    """Reset Gemini daily usage at midnight (called by scheduler)"""
+    try:
+        affected_rows = db.reset_gemini_daily_usage()
+        if affected_rows > 0:
+            print(f"[GEMINI] Reset {affected_rows} Gemini daily usage records for new day")
+        else:
+            print(f"[GEMINI] No Gemini daily usage records to reset")
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to reset Gemini daily usage: {e}")
+
 def run_scheduler():
     """Run the scheduler in a separate thread"""
     while True:
@@ -1240,8 +1255,8 @@ def run_scheduler():
         time.sleep(60)  # Check every minute
 
 if __name__ == '__main__':
-    # Schedule daily reset of quota-exceeded keys at midnight
-    schedule.every().day.at("00:00").do(reset_quota_exceeded_keys)
+    # Schedule daily reset of Gemini usage at midnight
+    schedule.every().day.at("00:00").do(reset_gemini_daily_usage)
     
     # Start scheduler in background thread
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)

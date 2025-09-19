@@ -45,7 +45,7 @@ def is_proxy_live(proxy_url: str, timeout=5):
     except:
         return False
 
-def check_and_filter_proxies(input_file="proxies.txt", proxy_type="http", max_workers=20, output_to_file=True):
+def check_and_filter_proxies(input_file="proxies.txt", proxy_type="http", max_workers=5, output_to_file=True):
     proxies = load_proxies(input_file, proxy_type)
     if not proxies:
         print("⚠️ Không tìm thấy proxy hợp lệ trong file.")
