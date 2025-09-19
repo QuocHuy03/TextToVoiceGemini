@@ -100,7 +100,6 @@ class DatabaseManager:
                 daily_limit INTEGER DEFAULT 1000,
                 monthly_limit INTEGER DEFAULT 30000,
                 last_used TIMESTAMP,
-                last_quota_exceeded TIMESTAMP,
                 usage_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -307,10 +306,6 @@ class DatabaseManager:
             # Check gemini_keys table
             cursor.execute("PRAGMA table_info(gemini_keys)")
             gemini_columns = [column[1] for column in cursor.fetchall()]
-            
-            if 'last_quota_exceeded' not in gemini_columns:
-                cursor.execute('ALTER TABLE gemini_keys ADD COLUMN last_quota_exceeded TIMESTAMP')
-                print("Added last_quota_exceeded column to gemini_keys table")
             
             conn.commit()
         except Exception as e:

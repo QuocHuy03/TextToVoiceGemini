@@ -189,14 +189,13 @@
                                     <th>API Key</th>
                                     <th>Usage Count</th>
                                     <th>Status</th>
-                                    <th>Quota Status</th>
                                     <th>Last Used</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="geminiKeysTableBody">
                                 <tr id="loadingGeminiRow">
-                                    <td colspan="8" class="text-center py-4">
+                                    <td colspan="7" class="text-center py-4">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
@@ -319,7 +318,6 @@
                             isActive: key.is_active,
                             usageCount: key.usage_count || 0,
                             lastUsed: key.last_used,
-                            lastQuotaExceeded: key.last_quota_exceeded,
                             createdAt: key.created_at
                         }));
                         
@@ -492,26 +490,6 @@
         function createGeminiKeyRow(key, index) {
             const row = document.createElement('tr');
             
-            // Determine quota status
-            let quotaStatus = '';
-            let quotaBadgeClass = 'bg-success';
-            if (key.lastQuotaExceeded) {
-                const quotaDate = new Date(key.lastQuotaExceeded);
-                const today = new Date();
-                const isToday = quotaDate.toDateString() === today.toDateString();
-                
-                if (isToday) {
-                    quotaStatus = 'Quota Exceeded Today';
-                    quotaBadgeClass = 'bg-danger';
-                } else {
-                    quotaStatus = 'Available';
-                    quotaBadgeClass = 'bg-success';
-                }
-            } else {
-                quotaStatus = 'Available';
-                quotaBadgeClass = 'bg-success';
-            }
-            
             row.innerHTML = `
                 <td>
                     <input type="checkbox" class="gemini-key-checkbox" value="${key.id}">
@@ -522,11 +500,6 @@
                 <td>
                     <span class="badge ${key.isActive ? 'bg-success' : 'bg-danger'}">
                         <i class="fas fa-check-circle me-1"></i>${key.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td>
-                    <span class="badge ${quotaBadgeClass}">
-                        <i class="fas fa-chart-line me-1"></i>${quotaStatus}
                     </span>
                 </td>
                 <td>${key.lastUsed ? formatDate(key.lastUsed) : 'Chưa sử dụng'}</td>

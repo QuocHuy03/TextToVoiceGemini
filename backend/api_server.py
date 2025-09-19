@@ -171,7 +171,7 @@ def mark_gemini_key_disabled_today(api_key):
         # Update the key to be disabled temporarily
         cursor.execute('''
             UPDATE gemini_keys 
-            SET is_active = 0, last_quota_exceeded = CURRENT_TIMESTAMP
+            SET is_active = 0
             WHERE api_key = ?
         ''', (api_key,))
         
@@ -192,9 +192,8 @@ def reset_quota_exceeded_keys():
         # Reset keys that were disabled due to quota exceeded yesterday
         cursor.execute('''
             UPDATE gemini_keys 
-            SET is_active = 1, last_quota_exceeded = NULL
-            WHERE is_active = 0 AND last_quota_exceeded IS NOT NULL
-            AND DATE(last_quota_exceeded) < DATE('now')
+            SET is_active = 1
+            WHERE is_active = 0
         ''')
         
         affected_rows = cursor.rowcount
@@ -606,7 +605,7 @@ def admin_list_gemini_keys():
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT id, api_key, is_active, last_used, usage_count, last_quota_exceeded, created_at
+        SELECT id, api_key, is_active, last_used, usage_count, created_at
         FROM gemini_keys ORDER BY created_at DESC
     ''')
     
@@ -621,8 +620,7 @@ def admin_list_gemini_keys():
             'is_active': key[2],
             'last_used': key[3],
             'usage_count': key[4],
-            'last_quota_exceeded': key[5],
-            'created_at': key[6]
+            'created_at': key[5]
         })
     
     return jsonify({'success': True, 'keys': result})
